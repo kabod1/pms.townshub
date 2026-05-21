@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 
@@ -9,9 +9,10 @@ interface AuthLayoutProps {
 
 export function AuthLayout({ children }: AuthLayoutProps) {
   const { user, isLoading, isInitialized } = useAuth()
+  const location = useLocation()
 
   if (!isInitialized || isLoading) return <LoadingSpinner fullPage />
-  if (user) return <Navigate to="/dashboard" replace />
+  if (user && location.pathname !== '/auth/reset-password') return <Navigate to="/dashboard" replace />
 
   return (
     <div className="flex min-h-screen bg-light">
