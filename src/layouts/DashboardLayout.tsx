@@ -5,6 +5,7 @@ import {
   Wrench, FileText, BarChart3, Settings, LogOut, Menu, X, ChevronLeft,
   Bell, Search, UtensilsCrossed, MessageSquare, Gift, Building2,
   MapPin, Star, ClipboardList, BarChart2, ChevronDown, ChevronRight, ShieldCheck, Megaphone,
+  Home, UserCheck, Key, DollarSign, Zap, ClipboardCheck, FolderOpen, PieChart, ArrowLeftRight,
 } from 'lucide-react'
 
 const SUPER_ADMIN_EMAILS = ['childrenfromlight@gmail.com']
@@ -17,6 +18,7 @@ import { AIAssistantWidget } from '@/components/AIAssistantWidget'
 import { initials } from '@/lib/utils'
 import toast from 'react-hot-toast'
 import { classNames } from '@/lib/utils'
+import type { PlatformMode } from '@/types/database'
 
 interface NavItem {
   to: string
@@ -25,7 +27,7 @@ interface NavItem {
   children?: NavItem[]
 }
 
-const navItems: NavItem[] = [
+const hotelNavItems: NavItem[] = [
   { to: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
   { to: '/bookings', label: 'Bookings', icon: <CalendarDays size={18} /> },
   { to: '/rooms', label: 'Rooms', icon: <BedDouble size={18} /> },
@@ -58,6 +60,23 @@ const navItems: NavItem[] = [
       { to: '/reports/executive', label: 'Executive BI', icon: <BarChart2 size={16} /> },
     ],
   },
+  { to: '/settings', label: 'Settings', icon: <Settings size={18} /> },
+]
+
+const propertyNavItems: NavItem[] = [
+  { to: '/property/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
+  { to: '/properties', label: 'Properties', icon: <Home size={18} /> },
+  { to: '/units', label: 'Units', icon: <Building2 size={18} /> },
+  { to: '/owners', label: 'Owners', icon: <UserCheck size={18} /> },
+  { to: '/renters', label: 'Renters', icon: <Users size={18} /> },
+  { to: '/leases', label: 'Leases', icon: <Key size={18} /> },
+  { to: '/rent-collection', label: 'Rent Collection', icon: <DollarSign size={18} /> },
+  { to: '/property-maintenance', label: 'Maintenance', icon: <Wrench size={18} /> },
+  { to: '/inspections', label: 'Inspections', icon: <ClipboardCheck size={18} /> },
+  { to: '/utilities', label: 'Utilities', icon: <Zap size={18} /> },
+  { to: '/property-reports', label: 'Reports', icon: <PieChart size={18} /> },
+  { to: '/property-documents', label: 'Documents', icon: <FolderOpen size={18} /> },
+  { to: '/owner-portal', label: 'Owner Portal', icon: <Star size={18} /> },
   { to: '/settings', label: 'Settings', icon: <Settings size={18} /> },
 ]
 
@@ -130,12 +149,67 @@ function NavItemComponent({ item, collapsed }: { item: NavItem; collapsed: boole
   )
 }
 
+function ModeSwitcher({ mode, onChange, collapsed }: { mode: PlatformMode; onChange: (m: PlatformMode) => void; collapsed: boolean }) {
+  const isHotel = mode === 'hotel'
+  if (collapsed) {
+    return (
+      <button
+        onClick={() => onChange(isHotel ? 'property' : 'hotel')}
+        className="w-full flex justify-center py-2 text-white/60 hover:text-white"
+        title={isHotel ? 'Switch to Property Mode' : 'Switch to Hotel Mode'}
+      >
+        <ArrowLeftRight size={16} />
+      </button>
+    )
+  }
+  return (
+    <div className="px-3 py-2">
+      <div className="flex rounded-lg bg-white/10 p-0.5 text-xs font-medium">
+        <button
+          onClick={() => onChange('hotel')}
+          className={classNames(
+            'flex-1 rounded-md py-1 transition-colors',
+            mode === 'hotel' ? 'bg-gold text-white' : 'text-white/60 hover:text-white',
+          )}
+        >
+          Hotel
+        </button>
+        <button
+          onClick={() => onChange('property')}
+          className={classNames(
+            'flex-1 rounded-md py-1 transition-colors',
+            mode === 'property' ? 'bg-gold text-white' : 'text-white/60 hover:text-white',
+          )}
+        >
+          Property
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user, tenant, isLoading, isInitialized } = useAuthStore()
   const { sidebarCollapsed, toggleSidebar } = useUIStore()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
+  const [activeMode, setActiveMode] = useState<PlatformMode>(() => {
+    const saved = sessionStorage.getItem('platform_mode') as PlatformMode | null
+    return saved ?? 'hotel'
+  })
   const navigate = useNavigate()
+
+  const tenantMode: PlatformMode = tenant?.mode ?? 'hotel'
+  const showModeSwitcher = tenantMode === 'both'
+  const currentMode: PlatformMode = tenantMode === 'both' ? activeMode : tenantMode
+
+  function handleModeChange(m: PlatformMode) {
+    setActiveMode(m)
+    sessionStorage.setItem('platform_mode', m)
+    navigate(m === 'hotel' ? '/dashboard' : '/property/dashboard')
+  }
+
+  const navItems = currentMode === 'property' ? propertyNavItems : hotelNavItems
 
   useEffect(() => {
     function handler(e: KeyboardEvent) {
@@ -183,11 +257,24 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         </button>
       </div>
 
-      {/* Hotel name */}
+      {/* Hotel / property name + mode switcher */}
       {!sidebarCollapsed && (
-        <div className="px-4 py-3 border-b border-white/10">
+        <div className="px-4 py-2 border-b border-white/10">
           <p className="text-xs font-medium text-gold truncate">{tenant?.name}</p>
           <p className="text-xs text-blue-200 capitalize">{tenant?.subscription_status} plan</p>
+        </div>
+      )}
+
+      {showModeSwitcher && (
+        <div className="border-b border-white/10">
+          <ModeSwitcher mode={currentMode} onChange={handleModeChange} collapsed={sidebarCollapsed} />
+        </div>
+      )}
+
+      {/* Mode label for non-both tenants */}
+      {!showModeSwitcher && !sidebarCollapsed && tenantMode === 'property' && (
+        <div className="px-3 py-1 border-b border-white/10">
+          <span className="text-xs font-semibold text-amber-400">Property Mode</span>
         </div>
       )}
 

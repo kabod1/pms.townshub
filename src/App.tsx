@@ -75,6 +75,31 @@ const AuditLog = lazy(() => import('@/pages/settings/AuditLog'))
 // Marketing
 const MarketingHub = lazy(() => import('@/pages/marketing/MarketingHub'))
 
+// Property Management Module
+const PropertyDashboard = lazy(() => import('@/pages/property/PropertyDashboard'))
+const PropertiesList = lazy(() => import('@/pages/properties/PropertiesList'))
+const PropertyDetail = lazy(() => import('@/pages/properties/PropertyDetail'))
+const NewProperty = lazy(() => import('@/pages/properties/NewProperty'))
+const UnitsList = lazy(() => import('@/pages/units/UnitsList'))
+const UnitDetail = lazy(() => import('@/pages/units/UnitDetail'))
+const NewUnit = lazy(() => import('@/pages/units/NewUnit'))
+const OwnersList = lazy(() => import('@/pages/owners/OwnersList'))
+const OwnerDetail = lazy(() => import('@/pages/owners/OwnerDetail'))
+const NewOwner = lazy(() => import('@/pages/owners/NewOwner'))
+const RentersList = lazy(() => import('@/pages/renters/RentersList'))
+const RenterDetail = lazy(() => import('@/pages/renters/RenterDetail'))
+const NewRenter = lazy(() => import('@/pages/renters/NewRenter'))
+const LeasesList = lazy(() => import('@/pages/leases/LeasesList'))
+const LeaseDetail = lazy(() => import('@/pages/leases/LeaseDetail'))
+const NewLease = lazy(() => import('@/pages/leases/NewLease'))
+const RentCollection = lazy(() => import('@/pages/rent-collection/RentCollection'))
+const PropertyMaintenancePage = lazy(() => import('@/pages/property-maintenance/PropertyMaintenancePage'))
+const InspectionsPage = lazy(() => import('@/pages/inspections/InspectionsPage'))
+const UtilitiesPage = lazy(() => import('@/pages/utilities/UtilitiesPage'))
+const PropertyReports = lazy(() => import('@/pages/property-reports/PropertyReports'))
+const PropertyDocumentsPage = lazy(() => import('@/pages/property-documents/PropertyDocumentsPage'))
+const OwnerPortalPage = lazy(() => import('@/pages/owner-portal/OwnerPortalPage'))
+
 // AI / Onboarding
 const OnboardingWizard = lazy(() => import('@/pages/onboarding/OnboardingWizard'))
 const AdminDashboard = lazy(() => import('@/pages/admin/AdminDashboard'))
@@ -154,6 +179,31 @@ function AppRoutes() {
 
         {/* Marketing Hub */}
         <Route path="/marketing" element={<MarketingHub />} />
+
+        {/* Property Management Module */}
+        <Route path="/property/dashboard" element={<PropertyDashboard />} />
+        <Route path="/properties" element={<PropertiesList />} />
+        <Route path="/properties/new" element={<NewProperty />} />
+        <Route path="/properties/:id" element={<PropertyDetail />} />
+        <Route path="/units" element={<UnitsList />} />
+        <Route path="/units/new" element={<NewUnit />} />
+        <Route path="/units/:id" element={<UnitDetail />} />
+        <Route path="/owners" element={<OwnersList />} />
+        <Route path="/owners/new" element={<NewOwner />} />
+        <Route path="/owners/:id" element={<OwnerDetail />} />
+        <Route path="/renters" element={<RentersList />} />
+        <Route path="/renters/new" element={<NewRenter />} />
+        <Route path="/renters/:id" element={<RenterDetail />} />
+        <Route path="/leases" element={<LeasesList />} />
+        <Route path="/leases/new" element={<NewLease />} />
+        <Route path="/leases/:id" element={<LeaseDetail />} />
+        <Route path="/rent-collection" element={<RentCollection />} />
+        <Route path="/property-maintenance" element={<PropertyMaintenancePage />} />
+        <Route path="/inspections" element={<InspectionsPage />} />
+        <Route path="/utilities" element={<UtilitiesPage />} />
+        <Route path="/property-reports" element={<PropertyReports />} />
+        <Route path="/property-documents" element={<PropertyDocumentsPage />} />
+        <Route path="/owner-portal" element={<OwnerPortalPage />} />
 
         {/* Loyalty */}
         <Route path="/loyalty" element={<LoyaltyPage />} />
