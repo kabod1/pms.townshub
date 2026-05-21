@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+
+  body {
+    @apply font-sans text-body bg-gray-50 antialiased;
+  }
+
+  :root {
+    color-scheme: light;
+  }
+}
+
+@layer utilities {
+  .print\:shadow-none {
+    box-shadow: none !important;
+  }
+}
+
+@media print {
+  body {
+    background: white;
+  }
+  nav, header, button {
+    display: none !important;
+  }
+}
