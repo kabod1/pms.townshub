@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { AuthLayout } from '@/layouts/AuthLayout'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { supabase } from '@/lib/supabase'
@@ -22,21 +21,36 @@ export default function ResetPassword() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [ready, setReady] = useState(false)
+  const [checking, setChecking] = useState(true)
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
   })
 
   useEffect(() => {
-    // Supabase fires PASSWORD_RECOVERY when the reset link is opened
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') setReady(true)
-    })
-    // Also check if there's already a session (user landed here with token in hash)
+    // Check if there's already an active recovery session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) setReady(true)
+      if (session) {
+        setReady(true)
+        setChecking(false)
+      }
     })
-    return () => subscription.unsubscribe()
+
+    // Also listen for the PASSWORD_RECOVERY event
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') {
+        setReady(true)
+        setChecking(false)
+      }
+    })
+
+    // Stop showing spinner after 3s regardless
+    const timeout = setTimeout(() => setChecking(false), 3000)
+
+    return () => {
+      subscription.unsubscribe()
+      clearTimeout(timeout)
+    }
   }, [])
 
   async function onSubmit(data: FormData) {
@@ -44,8 +58,8 @@ export default function ResetPassword() {
     try {
       const { error } = await supabase.auth.updateUser({ password: data.password })
       if (error) throw error
-      toast.success('Password updated! Signing you in…')
-      setTimeout(() => navigate('/dashboard'), 1500)
+      toast.success('Password updated! Taking you to the dashboard…')
+      setTimeout(() => navigate('/dashboard', { replace: true }), 1500)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to update password')
     } finally {
@@ -54,40 +68,56 @@ export default function ResetPassword() {
   }
 
   return (
-    <AuthLayout>
-      <div>
-        <h2 className="text-2xl font-bold text-body">Set new password</h2>
-        <p className="mt-1 text-sm text-subtext">Choose a strong password for your account.</p>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8">
+        {/* Logo */}
+        <div className="flex justify-center mb-6">
+          <img src="/logo.jpeg" alt="Townshub" className="h-16 w-auto object-contain rounded-xl" />
+        </div>
 
-        {!ready ? (
-          <div className="mt-8 rounded-lg bg-amber-50 border border-amber-200 p-4">
-            <p className="text-sm text-amber-800">Verifying your reset link…</p>
-            <p className="mt-1 text-xs text-amber-600">
-              If this takes too long, go back and request a new reset link.
-            </p>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit(onSubmit)} className="mt-8 space-y-4">
-            <Input
-              label="New password"
-              type="password"
-              placeholder="At least 8 characters"
-              error={errors.password?.message}
-              {...register('password')}
-            />
-            <Input
-              label="Confirm new password"
-              type="password"
-              placeholder="Repeat your password"
-              error={errors.confirm?.message}
-              {...register('confirm')}
-            />
-            <Button type="submit" fullWidth loading={loading} size="lg">
-              Update Password
-            </Button>
-          </form>
-        )}
+        <h2 className="text-2xl font-bold text-gray-900 text-center">Set new password</h2>
+        <p className="mt-1 text-sm text-gray-500 text-center">Choose a strong password for your account.</p>
+
+        <div className="mt-8">
+          {checking ? (
+            <div className="text-center py-6">
+              <div className="w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+              <p className="text-sm text-gray-500">Verifying reset link…</p>
+            </div>
+          ) : !ready ? (
+            <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-center">
+              <p className="text-sm font-medium text-red-800">Reset link expired or invalid</p>
+              <p className="mt-1 text-xs text-red-600">Please request a new password reset link.</p>
+              <button
+                onClick={() => navigate('/auth/forgot-password')}
+                className="mt-3 text-sm font-semibold text-red-700 underline"
+              >
+                Request new link
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+              <Input
+                label="New password"
+                type="password"
+                placeholder="At least 8 characters"
+                error={errors.password?.message}
+                {...register('password')}
+              />
+              <Input
+                label="Confirm new password"
+                type="password"
+                placeholder="Repeat your password"
+                error={errors.confirm?.message}
+                {...register('confirm')}
+              />
+              <Button type="submit" fullWidth loading={loading} size="lg">
+                Update Password
+              </Button>
+            </form>
+          )}
+        </div>
       </div>
-    </AuthLayout>
+    </div>
   )
 }
