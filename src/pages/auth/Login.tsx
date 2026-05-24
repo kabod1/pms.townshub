@@ -30,13 +30,27 @@ export default function Login() {
     setLoading(true)
     try {
       await signIn(data.email, data.password)
-      const result = await getCurrentUser()
+
+      let result = null
+      let lastErr: any = null
+      try {
+        result = await getCurrentUser()
+      } catch (e: any) {
+        lastErr = e
+      }
+
       if (result) {
         setAuth(result.user, result.tenant)
         navigate('/dashboard', { replace: true })
       } else {
-        // Signed in but no tenant profile found — account exists in auth but setup is incomplete
-        toast.error('Account setup is incomplete. Please contact support or re-register.')
+        const step = lastErr?.step
+        if (step === 'no_profile') {
+          toast.error('Your user profile was not found. Please contact support — your account may need to be re-initialised.')
+        } else if (step === 'no_tenant') {
+          toast.error('Your hotel/property account was not found. Please contact support.')
+        } else {
+          toast.error('Sign in succeeded but your profile could not be loaded. Please try again or contact support.')
+        }
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Sign in failed')

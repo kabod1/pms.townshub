@@ -12,38 +12,61 @@ export async function signOut() {
   if (error) throw error
 }
 
+export type AuthError = 'no_session' | 'no_profile' | 'no_tenant' | 'timeout' | 'unknown'
+
 export async function getCurrentUser(): Promise<{ user: User; tenant: Tenant } | null> {
-  try {
-    // 8-second hard timeout — prevents spinner hanging indefinitely
-    const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000))
-
-    const fetchUser = async () => {
-      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
-      if (authError || !authUser) return null
-
-      const { data: profile, error: profileError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', authUser.id)
-        .single()
-
-      if (profileError || !profile) return null
-
-      const { data: tenant, error: tenantError } = await supabase
-        .from('tenants')
-        .select('*')
-        .eq('id', profile.tenant_id)
-        .single()
-
-      if (tenantError || !tenant) return null
-
-      return { user: profile as User, tenant: tenant as Tenant }
+  // Retry up to 3 times to handle Supabase replication lag after sign-up
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, 1200 * attempt))
+    try {
+      const result = await Promise.race([
+        _fetchCurrentUser(),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 10_000)),
+      ])
+      if (result) return result
+    } catch {
+      // continue to next attempt
     }
-
-    return await Promise.race([fetchUser(), timeout])
-  } catch {
-    return null
   }
+  return null
+}
+
+async function _fetchCurrentUser(): Promise<{ user: User; tenant: Tenant } | null> {
+  const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
+  if (authError || !authUser) return null
+
+  const { data: profile, error: profileError } = await supabase
+    .from('users')
+    .select('*')
+    .eq('id', authUser.id)
+    .single()
+
+  if (profileError || !profile) {
+    // Surface the specific error so callers can show a meaningful message
+    const err = new Error(
+      profileError?.message ?? 'User profile not found in database'
+    )
+    ;(err as any).step = 'no_profile'
+    ;(err as any).detail = profileError?.code
+    throw err
+  }
+
+  const { data: tenant, error: tenantError } = await supabase
+    .from('tenants')
+    .select('*')
+    .eq('id', profile.tenant_id)
+    .single()
+
+  if (tenantError || !tenant) {
+    const err = new Error(
+      tenantError?.message ?? 'Tenant record not found in database'
+    )
+    ;(err as any).step = 'no_tenant'
+    ;(err as any).detail = tenantError?.code
+    throw err
+  }
+
+  return { user: profile as User, tenant: tenant as Tenant }
 }
 
 export async function resetPassword(email: string) {
