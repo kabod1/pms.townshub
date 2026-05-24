@@ -34,6 +34,9 @@ export default function Login() {
       if (result) {
         setAuth(result.user, result.tenant)
         navigate('/dashboard', { replace: true })
+      } else {
+        // Signed in but no tenant profile found — account exists in auth but setup is incomplete
+        toast.error('Account setup is incomplete. Please contact support or re-register.')
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Sign in failed')

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
-import { useAuth } from '@/hooks/useAuth'
+import { useAuthStore } from '@/store/authStore'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 
 interface AuthLayoutProps {
@@ -8,10 +8,16 @@ interface AuthLayoutProps {
 }
 
 export function AuthLayout({ children }: AuthLayoutProps) {
-  const { user, isLoading, isInitialized } = useAuth()
+  // Read directly from the store — useAuth() is already mounted in AppRoutes.
+  // Calling it here again would create duplicate Supabase onAuthStateChange listeners
+  // and fire two concurrent getCurrentUser() calls on every auth page.
+  const { user, isInitialized } = useAuthStore()
   const location = useLocation()
 
-  if (!isInitialized || isLoading) return <LoadingSpinner fullPage />
+  // Only block on cold start (isInitialized=false). Once initialized, don't re-block
+  // on every subsequent isLoading cycle (token refresh, etc.) — that caused a spinner
+  // flash every time a user revisited the login page.
+  if (!isInitialized) return <LoadingSpinner fullPage />
   if (user && location.pathname !== '/auth/reset-password') return <Navigate to="/dashboard" replace />
 
   return (
@@ -27,10 +33,10 @@ export function AuthLayout({ children }: AuthLayoutProps) {
         </p>
         <div className="mt-12 grid grid-cols-2 gap-4 w-full max-w-sm">
           {[
-            { label: 'Bookings', desc: 'Manage reservations with ease' },
-            { label: 'Housekeeping', desc: 'Real-time room status' },
-            { label: 'Invoicing', desc: 'Auto-generated VAT invoices' },
-            { label: 'Reports', desc: 'Occupancy & revenue analytics' },
+            { label: 'Bookings',     desc: 'Manage reservations with ease' },
+            { label: 'Housekeeping', desc: 'Real-time room status'         },
+            { label: 'Invoicing',    desc: 'Auto-generated VAT invoices'   },
+            { label: 'Reports',      desc: 'Occupancy & revenue analytics' },
           ].map((f) => (
             <div key={f.label} className="rounded-lg bg-white/10 p-3 border border-white/10">
               <p className="text-sm font-semibold text-gold">{f.label}</p>

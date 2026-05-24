@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, UserPlus, Users } from 'lucide-react'
+import { Search, UserPlus, Users, Download } from 'lucide-react'
 import { DashboardLayout } from '@/layouts/DashboardLayout'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
@@ -11,10 +11,24 @@ import { useGuests } from '@/hooks/useGuests'
 import { formatDate } from '@/lib/utils'
 import type { Guest } from '@/types'
 
+function exportGuestsCSV(guests: Guest[]) {
+  const headers = ['First Name', 'Last Name', 'Email', 'Phone', 'Nationality', 'Total Stays', 'Registered']
+  const rows = guests.map((g) => [g.first_name, g.last_name, g.email ?? '', g.phone ?? '', g.nationality ?? '', g.total_stays, formatDate(g.created_at)])
+  const csv = [headers, ...rows].map((r) => r.map(String).join(',')).join('\n')
+  const blob = new Blob([csv], { type: 'text/csv' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `guests_${new Date().toISOString().slice(0, 10)}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 export default function GuestDirectory() {
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const { data: guests, isLoading } = useGuests(search || undefined)
+  const handleExport = useCallback(() => exportGuestsCSV(guests ?? []), [guests])
 
   const columns = [
     {
@@ -54,11 +68,16 @@ export default function GuestDirectory() {
   return (
     <DashboardLayout>
       <div className="space-y-5">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
           <h1 className="text-xl font-bold text-body">Guest Directory</h1>
-          <Button size="sm" onClick={() => navigate('/guests/new')}>
-            <UserPlus size={16} /> Add Guest
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={handleExport} disabled={!guests?.length}>
+              <Download size={16} /> Export
+            </Button>
+            <Button size="sm" onClick={() => navigate('/guests/new')}>
+              <UserPlus size={16} /> Add Guest
+            </Button>
+          </div>
         </div>
 
         <Input

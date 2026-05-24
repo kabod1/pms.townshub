@@ -32,6 +32,7 @@ const itemSchema = z.object({
   category_id: z.string().optional(),
   allergens: z.string().optional(),
   tags: z.string().optional(),
+  photo_url: z.string().optional(),
   is_available: z.boolean().default(true),
 })
 type ItemForm = z.infer<typeof itemSchema>
@@ -127,6 +128,7 @@ export default function FBMenuManagement() {
         category_id: data.category_id || null,
         allergens: data.allergens ? data.allergens.split(',').map((s) => s.trim()).filter(Boolean) : [],
         tags: data.tags ? data.tags.split(',').map((s) => s.trim()).filter(Boolean) : [],
+        photo_url: data.photo_url || null,
         is_available: data.is_available,
         tenant_id: tenant!.id,
         sort_order: items.length,
@@ -180,6 +182,7 @@ export default function FBMenuManagement() {
       category_id: item.category_id ?? '',
       allergens: item.allergens?.join(', ') ?? '',
       tags: item.tags?.join(', ') ?? '',
+      photo_url: item.photo_url ?? '',
       is_available: item.is_available,
     })
     setShowItemModal(true)
@@ -199,6 +202,8 @@ export default function FBMenuManagement() {
   ]
 
   const isLoading = catLoading || itemLoading
+  const [tableCount, setTableCount] = useState(10)
+  const [showTableQRs, setShowTableQRs] = useState(false)
 
   const menuUrl = tenant ? `${window.location.origin}/menu/${tenant.slug}` : ''
   const qrSrc = menuUrl ? `https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=10&data=${encodeURIComponent(menuUrl)}` : ''
@@ -237,7 +242,55 @@ export default function FBMenuManagement() {
                 >
                   <QrCode size={12} /> Download QR
                 </a>
+                <button
+                  onClick={() => setShowTableQRs((v) => !v)}
+                  className="flex items-center gap-1.5 text-xs bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-lg transition-colors"
+                >
+                  <QrCode size={12} /> Per-Table QR Codes
+                </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Per-table QR codes */}
+        {showTableQRs && tenant && (
+          <div className="bg-white rounded-2xl border border-mid p-5 space-y-4">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div>
+                <h3 className="font-semibold text-body">Per-Table QR Codes</h3>
+                <p className="text-xs text-subtext mt-0.5">Each QR code pre-fills the table number when a guest scans it.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-subtext">Tables:</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={tableCount}
+                  onChange={(e) => setTableCount(Math.max(1, Math.min(100, parseInt(e.target.value) || 1)))}
+                  className="w-16 border border-mid rounded-lg px-2 py-1 text-sm text-body focus:outline-none focus:ring-2 focus:ring-gold"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-6 gap-3">
+              {Array.from({ length: tableCount }, (_, i) => i + 1).map((num) => {
+                const tableUrl = `${window.location.origin}/menu/${tenant.slug}/${num}`
+                const tableQrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&margin=8&data=${encodeURIComponent(tableUrl)}`
+                return (
+                  <div key={num} className="flex flex-col items-center gap-2 p-3 border border-mid rounded-xl bg-gray-50">
+                    <img src={tableQrSrc} alt={`Table ${num} QR`} className="w-20 h-20 rounded-lg bg-white p-1" />
+                    <p className="text-xs font-semibold text-body">Table {num}</p>
+                    <a
+                      href={tableQrSrc}
+                      download={`table-${num}-qr.png`}
+                      className="text-[10px] text-gold hover:underline"
+                    >
+                      Download
+                    </a>
+                  </div>
+                )
+              })}
             </div>
           </div>
         )}
@@ -293,14 +346,21 @@ export default function FBMenuManagement() {
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {filteredItems.map((item) => (
                   <Card key={item.id} className="flex flex-col gap-2">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-body truncate">{item.name}</p>
-                        {item.category && (
-                          <span className="text-xs text-subtext">{item.category.name}</span>
-                        )}
+                    <div className="flex items-start gap-3">
+                      {item.photo_url && (
+                        <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 shrink-0">
+                          <img src={item.photo_url} alt={item.name} className="w-full h-full object-cover" />
+                        </div>
+                      )}
+                      <div className="flex items-start justify-between flex-1 min-w-0">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-body truncate">{item.name}</p>
+                          {item.category && (
+                            <span className="text-xs text-subtext">{item.category.name}</span>
+                          )}
+                        </div>
+                        <p className="font-bold text-gold shrink-0 ml-2">{formatCurrency(item.price, tenant?.currency)}</p>
                       </div>
-                      <p className="font-bold text-gold shrink-0 ml-2">{formatCurrency(item.price, tenant?.currency)}</p>
                     </div>
                     {item.description && (
                       <p className="text-xs text-subtext line-clamp-2">{item.description}</p>
@@ -404,6 +464,19 @@ export default function FBMenuManagement() {
             </div>
             <Input label="Allergens (comma-separated)" placeholder="gluten, dairy, nuts" {...itemForm.register('allergens')} />
             <Input label="Tags (comma-separated)" placeholder="vegetarian, spicy, popular" {...itemForm.register('tags')} />
+            <div className="col-span-2 space-y-1.5">
+              <Input label="Photo URL" placeholder="https://…" {...itemForm.register('photo_url')} />
+              {itemForm.watch('photo_url') && (
+                <div className="w-20 h-20 rounded-lg overflow-hidden border border-mid bg-gray-50">
+                  <img
+                    src={itemForm.watch('photo_url')}
+                    alt="preview"
+                    className="w-full h-full object-cover"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                  />
+                </div>
+              )}
+            </div>
           </div>
           <label className="flex items-center gap-2 text-sm text-body cursor-pointer">
             <input type="checkbox" {...itemForm.register('is_available')} className="rounded border-mid" />

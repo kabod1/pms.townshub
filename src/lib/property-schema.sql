@@ -111,7 +111,7 @@ CREATE TABLE IF NOT EXISTS property_tenants (
   employer TEXT,
   emergency_contact_name TEXT,
   emergency_contact_phone TEXT,
-  references TEXT[],
+  tenant_references TEXT[],
   notes TEXT,
   tags TEXT[] DEFAULT '{}',
   portal_access BOOLEAN DEFAULT FALSE,
@@ -208,9 +208,7 @@ CREATE TABLE IF NOT EXISTS rent_schedule (
   paid_amount DECIMAL(10,2) DEFAULT 0,
   balance DECIMAL(10,2) GENERATED ALWAYS AS (amount - paid_amount) STORED,
   paid_date DATE,
-  days_overdue INTEGER GENERATED ALWAYS AS (
-    CASE WHEN status = 'overdue' THEN (CURRENT_DATE - due_date) ELSE 0 END
-  ) STORED,
+  days_overdue INTEGER DEFAULT 0,
   late_fee DECIMAL(10,2) DEFAULT 0,
   notes TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),

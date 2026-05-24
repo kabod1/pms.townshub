@@ -11,5 +11,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
+    detectSessionInUrl: true,  // ensures hash/code from email links is processed
+    flowType: 'implicit',      // use hash-based tokens for email links (more reliable than PKCE for email flows)
   },
 })

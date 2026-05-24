@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useNavigate, NavLink } from 'react-router-dom'
-import { Plus, Search } from 'lucide-react'
+import { Plus, Search, Download } from 'lucide-react'
 import { DashboardLayout } from '@/layouts/DashboardLayout'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -14,6 +14,28 @@ import {
   BOOKING_SOURCE_LABELS,
 } from '@/lib/constants'
 import type { Booking, BookingStatus } from '@/types'
+
+function exportBookingsCSV(bookings: Booking[]) {
+  const headers = ['Reference', 'Guest', 'Room', 'Check-in', 'Check-out', 'Status', 'Source', 'Total']
+  const rows = bookings.map((b) => [
+    b.booking_reference,
+    b.guest ? `${b.guest.first_name} ${b.guest.last_name}` : '',
+    b.room ? `Room ${b.room.number}` : b.room_type?.name ?? '',
+    b.check_in_date,
+    b.check_out_date,
+    BOOKING_STATUS_LABELS[b.status],
+    BOOKING_SOURCE_LABELS[b.source],
+    b.total_amount,
+  ])
+  const csv = [headers, ...rows].map((r) => r.map(String).join(',')).join('\n')
+  const blob = new Blob([csv], { type: 'text/csv' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `bookings_${new Date().toISOString().slice(0, 10)}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
 
 const STATUS_TABS: { value: BookingStatus | 'all'; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -33,6 +55,8 @@ export default function BookingsList() {
     status: statusFilter === 'all' ? undefined : statusFilter,
     search: search || undefined,
   })
+
+  const handleExport = useCallback(() => exportBookingsCSV(bookings ?? []), [bookings])
 
   const columns = [
     {
@@ -97,11 +121,16 @@ export default function BookingsList() {
   return (
     <DashboardLayout>
       <div className="space-y-5">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
           <h1 className="text-xl font-bold text-body">Bookings</h1>
-          <Button onClick={() => navigate('/bookings/new')} size="sm">
-            <Plus size={16} /> New Booking
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={handleExport} disabled={!bookings?.length}>
+              <Download size={16} /> Export
+            </Button>
+            <Button onClick={() => navigate('/bookings/new')} size="sm">
+              <Plus size={16} /> New Booking
+            </Button>
+          </div>
         </div>
 
         {/* View tabs: List | Calendar */}

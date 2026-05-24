@@ -365,6 +365,9 @@ export interface FBOrder {
   status: FBOrderStatus
   subtotal: number
   notes: string | null
+  payment_method: 'cash' | 'card' | 'stripe' | null
+  is_paid: boolean
+  table_token: string | null
   created_at: string
   updated_at: string
   items?: FBOrderItem[]
@@ -607,6 +610,19 @@ export type ChargedTo = 'tenant' | 'owner' | 'agency'
 export type ReportedByType = 'tenant' | 'owner' | 'manager' | 'inspection'
 export type ConditionRating = 'excellent' | 'good' | 'fair' | 'poor' | 'critical'
 
+export interface PropertySettings {
+  tagline?: string
+  logo_url?: string
+  primary_color?: string
+  accent_color?: string
+  website_url?: string
+  marketing_description?: string
+  social_instagram?: string
+  social_facebook?: string
+  social_linkedin?: string
+  listing_platforms?: string[]
+}
+
 export interface Property {
   id: string
   tenant_id: string
@@ -625,6 +641,7 @@ export interface Property {
   amenities: string[]
   photos: string[]
   documents: string[]
+  settings: PropertySettings | null
   latitude: number | null
   longitude: number | null
   is_active: boolean
@@ -707,7 +724,7 @@ export interface PropertyTenant {
   employer: string | null
   emergency_contact_name: string | null
   emergency_contact_phone: string | null
-  references: string[] | null
+  tenant_references: string[] | null
   notes: string | null
   tags: string[]
   portal_access: boolean

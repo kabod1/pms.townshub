@@ -21,7 +21,7 @@ export default async function handler(req: any, res: any) {
 
   const { data: tenant, error: tenantErr } = await db
     .from('tenants')
-    .select('id, name, slug, currency')
+    .select('id, name, slug, currency, logo_url')
     .eq('slug', slug)
     .single()
 

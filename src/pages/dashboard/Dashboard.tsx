@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import {
   BedDouble, CalendarCheck, CalendarX, Sparkles,
-  TrendingUp, Users,
+  TrendingUp, Users, Activity, Wrench, CheckCircle2, LogIn, LogOut,
 } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -125,11 +125,74 @@ function use7DayOccupancy() {
   })
 }
 
+function useRecentActivity() {
+  const { tenant } = useAuthStore()
+  return useQuery({
+    queryKey: ['recent-activity', tenant?.id],
+    queryFn: async () => {
+      const since = format(subDays(new Date(), 7), 'yyyy-MM-dd')
+      const [bookingsRes, maintenanceRes, housekeepingRes] = await Promise.all([
+        supabase.from('bookings')
+          .select('id, booking_reference, status, check_in_date, updated_at, guest:guests(first_name,last_name)')
+          .eq('tenant_id', tenant!.id)
+          .gte('updated_at', since)
+          .order('updated_at', { ascending: false })
+          .limit(8),
+        supabase.from('maintenance_requests')
+          .select('id, title, status, created_at')
+          .eq('tenant_id', tenant!.id)
+          .gte('created_at', since)
+          .order('created_at', { ascending: false })
+          .limit(5),
+        supabase.from('housekeeping_tasks')
+          .select('id, type, status, updated_at, room:rooms(number)')
+          .eq('tenant_id', tenant!.id)
+          .gte('updated_at', since)
+          .order('updated_at', { ascending: false })
+          .limit(5),
+      ])
+
+      type ActivityItem = { id: string; time: string; icon: string; label: string; sub: string; color: string }
+      const items: ActivityItem[] = []
+
+      for (const b of bookingsRes.data ?? []) {
+        const guest = (Array.isArray(b.guest) ? b.guest[0] : b.guest) as { first_name: string; last_name: string } | null
+        const name = guest ? `${guest.first_name} ${guest.last_name}` : b.booking_reference
+        if (b.status === 'checked_in')  items.push({ id: b.id, time: b.updated_at, icon: 'checkin',   label: `${name} checked in`,      sub: b.booking_reference, color: 'text-green-600' })
+        else if (b.status === 'checked_out') items.push({ id: b.id, time: b.updated_at, icon: 'checkout',  label: `${name} checked out`,     sub: b.booking_reference, color: 'text-blue' })
+        else if (b.status === 'confirmed')   items.push({ id: b.id, time: b.updated_at, icon: 'booking',   label: `New booking — ${name}`,   sub: b.booking_reference, color: 'text-navy' })
+        else if (b.status === 'cancelled')   items.push({ id: b.id, time: b.updated_at, icon: 'cancel',    label: `Booking cancelled`,       sub: b.booking_reference, color: 'text-red-500' })
+      }
+      for (const m of maintenanceRes.data ?? []) {
+        items.push({ id: m.id, time: m.created_at, icon: 'maintenance', label: m.title, sub: `Maintenance · ${m.status}`, color: 'text-amber-600' })
+      }
+      for (const h of housekeepingRes.data ?? []) {
+        const room = (Array.isArray(h.room) ? h.room[0] : h.room) as { number: string } | null
+        items.push({ id: h.id, time: h.updated_at, icon: 'housekeeping', label: `Room ${room?.number ?? '—'} — ${h.type.replace('_', ' ')}`, sub: h.status, color: 'text-subtext' })
+      }
+
+      return items.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()).slice(0, 12)
+    },
+    enabled: !!tenant,
+    refetchInterval: 30_000,
+  })
+}
+
+function ActivityIcon({ icon, color }: { icon: string; color: string }) {
+  const cls = `${color} shrink-0`
+  if (icon === 'checkin')     return <LogIn size={14} className={cls} />
+  if (icon === 'checkout')    return <LogOut size={14} className={cls} />
+  if (icon === 'maintenance') return <Wrench size={14} className={cls} />
+  if (icon === 'housekeeping')return <CheckCircle2 size={14} className={cls} />
+  return <Activity size={14} className={cls} />
+}
+
 export default function Dashboard() {
   const { tenant } = useAuthStore()
   const { data: stats, isLoading: statsLoading } = useDashboardStats()
   const { data: todayBookings, isLoading: bookingsLoading } = useTodayBookings()
   const { data: occupancyData } = use7DayOccupancy()
+  const { data: activity } = useRecentActivity()
 
   return (
     <DashboardLayout>
@@ -244,6 +307,32 @@ export default function Dashboard() {
               </div>
             )}
           </div>
+        </div>
+
+        {/* Recent Activity feed */}
+        <div className="rounded-xl bg-white shadow-sm ring-1 ring-mid p-5">
+          <h2 className="text-sm font-semibold text-body mb-4 flex items-center gap-2">
+            <Activity size={16} className="text-subtext" /> Recent Activity
+            <span className="ml-auto text-xs font-normal text-subtext">Last 7 days</span>
+          </h2>
+          {!activity?.length ? (
+            <p className="text-sm text-subtext py-6 text-center">No recent activity</p>
+          ) : (
+            <div className="divide-y divide-mid">
+              {activity.map((item) => (
+                <div key={item.id + item.time} className="flex items-center gap-3 py-2.5">
+                  <ActivityIcon icon={item.icon} color={item.color} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-body truncate">{item.label}</p>
+                    <p className="text-xs text-subtext">{item.sub}</p>
+                  </div>
+                  <span className="text-xs text-subtext shrink-0">
+                    {new Date(item.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* 7-day occupancy chart */}

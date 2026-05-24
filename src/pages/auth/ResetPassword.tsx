@@ -10,7 +10,7 @@ import toast from 'react-hot-toast'
 
 const schema = z.object({
   password: z.string().min(8, 'Password must be at least 8 characters'),
-  confirm: z.string(),
+  confirm:  z.string(),
 }).refine((d) => d.password === d.confirm, {
   message: 'Passwords do not match',
   path: ['confirm'],
@@ -19,8 +19,8 @@ type FormData = z.infer<typeof schema>
 
 export default function ResetPassword() {
   const navigate = useNavigate()
-  const [loading, setLoading] = useState(false)
-  const [ready, setReady] = useState(false)
+  const [loading,  setLoading]  = useState(false)
+  const [ready,    setReady]    = useState(false)
   const [checking, setChecking] = useState(true)
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
@@ -28,24 +28,38 @@ export default function ResetPassword() {
   })
 
   useEffect(() => {
-    // Check if there's already an active recovery session
+    let done = false
+
+    function activate() {
+      if (done) return
+      done = true
+      setReady(true)
+      setChecking(false)
+    }
+
+    // 1. Check if Supabase has already established a session from the URL hash/code.
+    //    This handles the common case where hash processing completes before the
+    //    component mounts.
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        setReady(true)
-        setChecking(false)
+      if (session) activate()
+    })
+
+    // 2. Subscribe to auth state changes.
+    //    In supabase-js v2, subscribing immediately fires INITIAL_SESSION with the
+    //    current session (if any). Also fires PASSWORD_RECOVERY when Supabase
+    //    processes a recovery hash that was pending.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (
+        event === 'PASSWORD_RECOVERY' ||           // recovery hash processed
+        event === 'SIGNED_IN'         ||           // code-based exchange completed
+        (event === 'INITIAL_SESSION' && session)   // already have session on subscribe
+      ) {
+        activate()
       }
     })
 
-    // Also listen for the PASSWORD_RECOVERY event
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') {
-        setReady(true)
-        setChecking(false)
-      }
-    })
-
-    // Stop showing spinner after 3s regardless
-    const timeout = setTimeout(() => setChecking(false), 3000)
+    // 3. Fallback: stop spinner after 6 s. If still not ready → link is invalid/expired.
+    const timeout = setTimeout(() => setChecking(false), 6000)
 
     return () => {
       subscription.unsubscribe()
@@ -58,8 +72,10 @@ export default function ResetPassword() {
     try {
       const { error } = await supabase.auth.updateUser({ password: data.password })
       if (error) throw error
-      toast.success('Password updated! Taking you to the dashboard…')
-      setTimeout(() => navigate('/dashboard', { replace: true }), 1500)
+      toast.success('Password updated successfully!')
+      // Sign out after reset so the user logs in fresh with the new password
+      await supabase.auth.signOut()
+      setTimeout(() => navigate('/auth/login', { replace: true }), 1200)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to update password')
     } finally {
@@ -87,12 +103,14 @@ export default function ResetPassword() {
           ) : !ready ? (
             <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-center">
               <p className="text-sm font-medium text-red-800">Reset link expired or invalid</p>
-              <p className="mt-1 text-xs text-red-600">Please request a new password reset link.</p>
+              <p className="mt-1 text-xs text-red-600">
+                Password reset links expire after 1 hour and can only be used once.
+              </p>
               <button
                 onClick={() => navigate('/auth/forgot-password')}
                 className="mt-3 text-sm font-semibold text-red-700 underline"
               >
-                Request new link
+                Request a new reset link
               </button>
             </div>
           ) : (
@@ -101,6 +119,7 @@ export default function ResetPassword() {
                 label="New password"
                 type="password"
                 placeholder="At least 8 characters"
+                autoComplete="new-password"
                 error={errors.password?.message}
                 {...register('password')}
               />
@@ -108,6 +127,7 @@ export default function ResetPassword() {
                 label="Confirm new password"
                 type="password"
                 placeholder="Repeat your password"
+                autoComplete="new-password"
                 error={errors.confirm?.message}
                 {...register('confirm')}
               />

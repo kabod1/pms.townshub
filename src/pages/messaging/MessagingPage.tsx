@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Send, MessageCircle, Bot, User, Clock } from 'lucide-react'
+import { Send, MessageCircle, Bot, User, Clock, ArrowLeft } from 'lucide-react'
 import { DashboardLayout } from '@/layouts/DashboardLayout'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -117,6 +117,7 @@ function InStayMessaging() {
   const { user } = useAuthStore()
   const qc = useQueryClient()
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null)
+  const [mobileView, setMobileView] = useState<'list' | 'chat'>('list')
   const bottomRef = useRef<HTMLDivElement>(null)
 
   const { data: bookings = [], isLoading: bookingsLoading } = useActiveBookings()
@@ -128,6 +129,16 @@ function InStayMessaging() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  function selectBooking(id: string) {
+    setSelectedBookingId(id)
+    setMobileView('chat')
+  }
+
+  function backToList() {
+    setSelectedBookingId(null)
+    setMobileView('list')
+  }
 
   const sendMsg = useMutation({
     mutationFn: async ({ body }: MsgForm) => {
@@ -149,8 +160,8 @@ function InStayMessaging() {
 
   return (
     <div className="flex h-full gap-4">
-      {/* Booking list */}
-      <div className="w-64 shrink-0 overflow-y-auto rounded-xl bg-white shadow-sm ring-1 ring-mid">
+      {/* Booking list — full width on mobile when showing list, hidden when showing chat */}
+      <div className={`${mobileView === 'list' ? 'flex' : 'hidden'} lg:flex flex-col w-full lg:w-64 lg:shrink-0 overflow-y-auto rounded-xl bg-white shadow-sm ring-1 ring-mid`}>
         {bookingsLoading ? (
           <div className="flex justify-center py-8"><LoadingSpinner /></div>
         ) : bookings.length === 0 ? (
@@ -162,7 +173,7 @@ function InStayMessaging() {
               return (
                 <button
                   key={b.id}
-                  onClick={() => setSelectedBookingId(b.id)}
+                  onClick={() => selectBooking(b.id)}
                   className={`w-full text-left px-4 py-3 hover:bg-light transition-colors ${selectedBookingId === b.id ? 'bg-light border-l-2 border-gold' : ''}`}
                 >
                   <p className="text-sm font-medium text-body">
@@ -178,26 +189,28 @@ function InStayMessaging() {
         )}
       </div>
 
-      {/* Chat */}
-      <div className="flex-1 flex flex-col rounded-xl bg-white shadow-sm ring-1 ring-mid overflow-hidden">
+      {/* Chat — full width on mobile when showing chat, hidden when showing list */}
+      <div className={`${mobileView === 'chat' ? 'flex' : 'hidden'} lg:flex flex-1 flex-col rounded-xl bg-white shadow-sm ring-1 ring-mid overflow-hidden`}>
         {!selectedBookingId ? (
           <div className="flex-1 flex items-center justify-center">
             <EmptyState icon={<MessageCircle size={32} />} title="Select a guest" description="Choose a checked-in guest to start messaging." />
           </div>
         ) : (
           <>
-            <div className="px-4 py-3 border-b border-mid">
-              {selectedBooking && (
-                <div className="flex items-center gap-2">
-                  <p className="font-semibold text-body">
-                    {(selectedBooking.guest as { first_name: string; last_name: string } | null)
-                      ? `${(selectedBooking.guest as { first_name: string; last_name: string }).first_name} ${(selectedBooking.guest as { first_name: string; last_name: string }).last_name}`
-                      : 'Guest'}
-                  </p>
-                  <Badge label={`Room ${selectedBooking.room?.number ?? '—'}`} className="bg-green-100 text-green-700 text-xs" />
-                  <Badge label="Checked In" className="bg-blue-100 text-blue-700 text-xs" />
-                </div>
-              )}
+            <div className="px-4 py-3 border-b border-mid flex items-center gap-2">
+              <button onClick={backToList} className="lg:hidden rounded-md p-1 text-subtext hover:bg-light mr-1">
+                <ArrowLeft size={18} />
+              </button>
+              {selectedBooking && (() => {
+                const g = selectedBooking.guest as { first_name: string; last_name: string } | null
+                return (
+                  <>
+                    <p className="font-semibold text-body text-sm">{g ? `${g.first_name} ${g.last_name}` : 'Guest'}</p>
+                    <Badge label={`Room ${selectedBooking.room?.number ?? '—'}`} className="bg-green-100 text-green-700 text-xs" />
+                    <Badge label="Checked In" className="bg-blue-100 text-blue-700 text-xs" />
+                  </>
+                )
+              })()}
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
@@ -208,7 +221,7 @@ function InStayMessaging() {
               ) : (
                 messages.map((msg) => (
                   <div key={msg.id} className={`flex ${msg.sender_type === 'staff' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[70%] rounded-2xl px-4 py-2 ${msg.sender_type === 'staff' ? 'bg-navy text-white rounded-br-sm' : 'bg-light text-body rounded-bl-sm'}`}>
+                    <div className={`max-w-[80%] rounded-2xl px-4 py-2 ${msg.sender_type === 'staff' ? 'bg-navy text-white rounded-br-sm' : 'bg-light text-body rounded-bl-sm'}`}>
                       <p className="text-xs opacity-70 mb-0.5">{msg.sender_name}</p>
                       <p className="text-sm">{msg.body}</p>
                       <p className="text-xs opacity-50 mt-0.5 text-right">
@@ -243,6 +256,7 @@ function InStayMessaging() {
 
 function GuestAIChat() {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
+  const [mobileView, setMobileView] = useState<'list' | 'chat'>('list')
   const bottomRef = useRef<HTMLDivElement>(null)
 
   const { data: sessions = [], isLoading: sessionsLoading } = useGuestChatSessions()
@@ -257,7 +271,7 @@ function GuestAIChat() {
   return (
     <div className="flex h-full gap-4">
       {/* Session list */}
-      <div className="w-64 shrink-0 overflow-y-auto rounded-xl bg-white shadow-sm ring-1 ring-mid">
+      <div className={`${mobileView === 'list' ? 'flex' : 'hidden'} lg:flex flex-col w-full lg:w-64 lg:shrink-0 overflow-y-auto rounded-xl bg-white shadow-sm ring-1 ring-mid`}>
         {sessionsLoading ? (
           <div className="flex justify-center py-8"><LoadingSpinner /></div>
         ) : sessions.length === 0 ? (
@@ -270,7 +284,7 @@ function GuestAIChat() {
             {sessions.map((s) => (
               <button
                 key={s.id}
-                onClick={() => setSelectedSessionId(s.id)}
+                onClick={() => { setSelectedSessionId(s.id); setMobileView('chat') }}
                 className={`w-full text-left px-4 py-3 hover:bg-light transition-colors ${selectedSessionId === s.id ? 'bg-light border-l-2 border-gold' : ''}`}
               >
                 <p className="text-sm font-medium text-body">
@@ -288,7 +302,7 @@ function GuestAIChat() {
       </div>
 
       {/* Message thread */}
-      <div className="flex-1 flex flex-col rounded-xl bg-white shadow-sm ring-1 ring-mid overflow-hidden">
+      <div className={`${mobileView === 'chat' ? 'flex' : 'hidden'} lg:flex flex-1 flex-col rounded-xl bg-white shadow-sm ring-1 ring-mid overflow-hidden`}>
         {!selectedSessionId ? (
           <div className="flex-1 flex items-center justify-center">
             <EmptyState
@@ -300,6 +314,9 @@ function GuestAIChat() {
         ) : (
           <>
             <div className="px-4 py-3 border-b border-mid flex items-center gap-2">
+              <button onClick={() => { setSelectedSessionId(null); setMobileView('list') }} className="lg:hidden rounded-md p-1 text-subtext hover:bg-light mr-1">
+                <ArrowLeft size={18} />
+              </button>
               <div className="w-7 h-7 bg-amber-500 rounded-lg flex items-center justify-center">
                 <Bot size={14} className="text-white" />
               </div>
@@ -371,7 +388,7 @@ export default function MessagingPage() {
 
   return (
     <DashboardLayout>
-      <div className="flex flex-col h-[calc(100vh-80px)] space-y-4">
+      <div className="flex flex-col h-[calc(100dvh-80px)] space-y-4">
         <div className="flex items-start justify-between flex-wrap gap-3 shrink-0">
           <div>
             <h1 className="text-xl font-bold text-body">Messaging</h1>

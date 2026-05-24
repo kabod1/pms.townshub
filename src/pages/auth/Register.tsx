@@ -6,19 +6,18 @@ import { z } from 'zod'
 import { AuthLayout } from '@/layouts/AuthLayout'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
-import { registerHotel } from '@/lib/auth'
-import { getCurrentUser } from '@/lib/auth'
+import { registerHotel, getCurrentUser } from '@/lib/auth'
 import { useAuthStore } from '@/store/authStore'
 import toast from 'react-hot-toast'
 
 const schema = z.object({
-  hotelName: z.string().min(2, 'Hotel name is required'),
-  fullName: z.string().min(2, 'Your name is required'),
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  hotelName:       z.string().min(2, 'Hotel name is required'),
+  fullName:        z.string().min(2, 'Your name is required'),
+  email:           z.string().email('Invalid email address'),
+  password:        z.string().min(8, 'Password must be at least 8 characters'),
   confirmPassword: z.string(),
-  phone: z.string().optional(),
-  city: z.string().optional(),
+  phone:           z.string().optional(),
+  city:            z.string().optional(),
 }).refine((d) => d.password === d.confirmPassword, {
   message: 'Passwords do not match',
   path: ['confirmPassword'],
@@ -38,11 +37,28 @@ export default function Register() {
     setLoading(true)
     try {
       await registerHotel(data)
-      const result = await getCurrentUser()
+
+      // Give Supabase a moment to propagate the session after the RPC.
+      // The onAuthStateChange SIGNED_IN event fires during signUp, before the
+      // register_hotel RPC creates the users row — so we fetch here explicitly.
+      await new Promise((r) => setTimeout(r, 500))
+
+      let result = await getCurrentUser()
+
+      // Single retry if the profile row isn't visible yet (e.g., replication lag)
+      if (!result) {
+        await new Promise((r) => setTimeout(r, 1500))
+        result = await getCurrentUser()
+      }
+
       if (result) {
         setAuth(result.user, result.tenant)
-        toast.success('Welcome to Townshub PMS! Your 30-day trial has started.')
+        toast.success('Welcome to TownsHub PMS! Your 30-day trial has started.')
         navigate('/dashboard', { replace: true })
+      } else {
+        // Profile created but couldn't be fetched — redirect to login so they can sign in normally
+        toast.success('Account created! Please sign in to continue.')
+        navigate('/auth/login', { replace: true })
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Registration failed')
@@ -74,6 +90,7 @@ export default function Register() {
             label="Email address"
             type="email"
             placeholder="admin@yourhotel.com"
+            autoComplete="email"
             error={errors.email?.message}
             {...register('email')}
           />
@@ -94,6 +111,7 @@ export default function Register() {
             label="Password"
             type="password"
             placeholder="Min. 8 characters"
+            autoComplete="new-password"
             error={errors.password?.message}
             {...register('password')}
           />
@@ -101,6 +119,7 @@ export default function Register() {
             label="Confirm Password"
             type="password"
             placeholder="Repeat password"
+            autoComplete="new-password"
             error={errors.confirmPassword?.message}
             {...register('confirmPassword')}
           />

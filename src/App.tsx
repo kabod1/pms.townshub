@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'react-hot-toast'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { useAuth } from '@/hooks/useAuth'
 
 // Auth pages
@@ -49,6 +50,7 @@ const InvoiceDetail = lazy(() => import('@/pages/invoices/InvoiceDetail'))
 const ReportsDashboard = lazy(() => import('@/pages/reports/ReportsDashboard'))
 const CustomReportBuilder = lazy(() => import('@/pages/reports/CustomReportBuilder'))
 const ExecutiveDashboard = lazy(() => import('@/pages/reports/ExecutiveDashboard'))
+const PredictiveAnalytics = lazy(() => import('@/pages/reports/PredictiveAnalytics'))
 
 // Communications & Guest Experience
 const CommunicationsCenter = lazy(() => import('@/pages/communications/CommunicationsCenter'))
@@ -71,6 +73,12 @@ const Packages = lazy(() => import('@/pages/settings/Packages'))
 const Promotions = lazy(() => import('@/pages/settings/Promotions'))
 const GiftVouchers = lazy(() => import('@/pages/settings/GiftVouchers'))
 const AuditLog = lazy(() => import('@/pages/settings/AuditLog'))
+const ChannelManager = lazy(() => import('@/pages/settings/ChannelManager'))
+const StaffSchedule = lazy(() => import('@/pages/settings/StaffSchedule'))
+const StaffDetail   = lazy(() => import('@/pages/settings/StaffDetail'))
+
+// Surveys
+const PublicSurvey = lazy(() => import('@/pages/surveys/PublicSurvey'))
 
 // Marketing
 const MarketingHub = lazy(() => import('@/pages/marketing/MarketingHub'))
@@ -99,6 +107,7 @@ const UtilitiesPage = lazy(() => import('@/pages/utilities/UtilitiesPage'))
 const PropertyReports = lazy(() => import('@/pages/property-reports/PropertyReports'))
 const PropertyDocumentsPage = lazy(() => import('@/pages/property-documents/PropertyDocumentsPage'))
 const OwnerPortalPage = lazy(() => import('@/pages/owner-portal/OwnerPortalPage'))
+const PropertyMarketingHub = lazy(() => import('@/pages/property-marketing/PropertyMarketingHub'))
 
 // AI / Onboarding
 const OnboardingWizard = lazy(() => import('@/pages/onboarding/OnboardingWizard'))
@@ -112,8 +121,8 @@ const PublicMenu = lazy(() => import('@/pages/PublicMenu'))
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 30_000,
-      retry: 1,
+      staleTime: 0,
+      retry: 2,
     },
   },
 })
@@ -122,6 +131,7 @@ function AppRoutes() {
   useAuth()
 
   return (
+    <ErrorBoundary>
     <Suspense fallback={<LoadingSpinner fullPage />}>
       <Routes>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
@@ -170,6 +180,7 @@ function AppRoutes() {
         <Route path="/reports" element={<ReportsDashboard />} />
         <Route path="/reports/builder" element={<CustomReportBuilder />} />
         <Route path="/reports/executive" element={<ExecutiveDashboard />} />
+        <Route path="/reports/intelligence" element={<PredictiveAnalytics />} />
 
         {/* Guest Experience */}
         <Route path="/communications" element={<CommunicationsCenter />} />
@@ -204,6 +215,7 @@ function AppRoutes() {
         <Route path="/property-reports" element={<PropertyReports />} />
         <Route path="/property-documents" element={<PropertyDocumentsPage />} />
         <Route path="/owner-portal" element={<OwnerPortalPage />} />
+        <Route path="/property-marketing" element={<PropertyMarketingHub />} />
 
         {/* Loyalty */}
         <Route path="/loyalty" element={<LoyaltyPage />} />
@@ -220,6 +232,9 @@ function AppRoutes() {
         <Route path="/settings/promotions" element={<Promotions />} />
         <Route path="/settings/vouchers" element={<GiftVouchers />} />
         <Route path="/settings/audit-log" element={<AuditLog />} />
+        <Route path="/settings/channels" element={<ChannelManager />} />
+        <Route path="/settings/staff-schedule" element={<StaffSchedule />} />
+        <Route path="/settings/users/:id" element={<StaffDetail />} />
 
         {/* Onboarding */}
         <Route path="/onboarding" element={<OnboardingWizard />} />
@@ -231,11 +246,14 @@ function AppRoutes() {
         <Route path="/guest-chat/:slug" element={<GuestChat />} />
         <Route path="/pre-checkin/:token" element={<PreCheckin />} />
         <Route path="/menu/:slug" element={<PublicMenu />} />
+        <Route path="/menu/:slug/:tableToken" element={<PublicMenu />} />
+        <Route path="/survey/:ref" element={<PublicSurvey />} />
 
         {/* Catch-all */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </Suspense>
+    </ErrorBoundary>
   )
 }
 

@@ -1,13 +1,15 @@
 import { useQuery } from '@tanstack/react-query'
-import { Star } from 'lucide-react'
+import { Star, Link2, Copy } from 'lucide-react'
 import { DashboardLayout } from '@/layouts/DashboardLayout'
 import { StatCard } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
+import { Button } from '@/components/ui/Button'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
 import type { Survey } from '@/types'
+import toast from 'react-hot-toast'
 
 function RatingBar({ label, value }: { label: string; value: number | null }) {
   if (value === null) return null
@@ -56,6 +58,11 @@ function npsCategory(score: number) {
   return { label: 'Detractor', color: 'bg-red-100 text-red-700' }
 }
 
+function copySurveyLink(bookingRef: string) {
+  const url = `${window.location.origin}/survey/${bookingRef}`
+  navigator.clipboard.writeText(url).then(() => toast.success('Survey link copied!')).catch(() => toast.error('Copy failed'))
+}
+
 export default function SurveysPage() {
   const { data: surveys = [], isLoading } = useSurveys()
 
@@ -80,9 +87,28 @@ export default function SurveysPage() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-xl font-bold text-body">Guest Satisfaction Surveys</h1>
-          <p className="text-sm text-subtext">NPS scores and post-stay feedback</p>
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-xl font-bold text-body">Guest Satisfaction Surveys</h1>
+            <p className="text-sm text-subtext">NPS scores and post-stay feedback</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Link2 size={14} className="text-subtext" />
+            <span className="text-xs text-subtext">Survey link:</span>
+            <code className="text-xs bg-light px-2 py-1 rounded-md text-body font-mono truncate max-w-[180px]">
+              /survey/BOOKING_REF
+            </code>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                const example = `${window.location.origin}/survey/HTL-XXXXXX`
+                navigator.clipboard.writeText(example).then(() => toast.success('Example link copied — replace XXXXXX with booking ref')).catch(() => {})
+              }}
+            >
+              <Copy size={14} /> Copy template
+            </Button>
+          </div>
         </div>
 
         {isLoading ? (
@@ -162,7 +188,14 @@ export default function SurveysPage() {
                               {guest ? `${guest.first_name} ${guest.last_name}` : 'Anonymous'}
                             </p>
                             {booking && (
-                              <span className="text-xs text-subtext font-mono">{booking.booking_reference}</span>
+                              <button
+                                onClick={() => copySurveyLink(booking.booking_reference)}
+                                className="flex items-center gap-1 text-xs text-subtext font-mono hover:text-navy transition-colors"
+                                title="Copy survey link"
+                              >
+                                {booking.booking_reference}
+                                <Copy size={11} />
+                              </button>
                             )}
                             {survey.nps_score !== null && (
                               <Badge label={npsCategory(survey.nps_score).label} className={npsCategory(survey.nps_score).color + ' text-xs'} />

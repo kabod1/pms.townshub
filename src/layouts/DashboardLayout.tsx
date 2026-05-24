@@ -1,20 +1,23 @@
 import { type ReactNode, useState, useEffect } from 'react'
 import { NavLink, useNavigate, Navigate } from 'react-router-dom'
+import { SUPPORTED_LANGUAGES, changeLanguage, getCurrentLanguage, type SupportedLang } from '@/lib/i18n'
+import { usePageTracking } from '@/hooks/usePageTracking'
 import {
   LayoutDashboard, CalendarDays, BedDouble, Users, Sparkles,
   Wrench, FileText, BarChart3, Settings, LogOut, Menu, X, ChevronLeft,
   Bell, Search, UtensilsCrossed, MessageSquare, Gift, Building2,
   MapPin, Star, ClipboardList, BarChart2, ChevronDown, ChevronRight, ShieldCheck, Megaphone,
-  Home, UserCheck, Key, DollarSign, Zap, ClipboardCheck, FolderOpen, PieChart, ArrowLeftRight,
+  Home, UserCheck, Key, DollarSign, Zap, ClipboardCheck, FolderOpen, PieChart, ArrowLeftRight, Brain,
 } from 'lucide-react'
 
-const SUPER_ADMIN_EMAILS = ['childrenfromlight@gmail.com']
+const SUPER_ADMIN_EMAILS = ['admin@townshub.cy']
 import { useAuthStore } from '@/store/authStore'
 import { useUIStore } from '@/store/uiStore'
 import { signOut } from '@/lib/auth'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { GlobalSearch } from '@/components/GlobalSearch'
 import { AIAssistantWidget } from '@/components/AIAssistantWidget'
+import { PushNotificationBell } from '@/components/PushNotificationBell'
 import { initials } from '@/lib/utils'
 import toast from 'react-hot-toast'
 import { classNames } from '@/lib/utils'
@@ -58,6 +61,7 @@ const hotelNavItems: NavItem[] = [
       { to: '/reports', label: 'Analytics', icon: <BarChart3 size={16} /> },
       { to: '/reports/builder', label: 'Custom Reports', icon: <BarChart2 size={16} /> },
       { to: '/reports/executive', label: 'Executive BI', icon: <BarChart2 size={16} /> },
+      { to: '/reports/intelligence', label: 'AI Intelligence', icon: <Brain size={16} /> },
     ],
   },
   { to: '/settings', label: 'Settings', icon: <Settings size={18} /> },
@@ -77,6 +81,7 @@ const propertyNavItems: NavItem[] = [
   { to: '/property-reports', label: 'Reports', icon: <PieChart size={18} /> },
   { to: '/property-documents', label: 'Documents', icon: <FolderOpen size={18} /> },
   { to: '/owner-portal', label: 'Owner Portal', icon: <Star size={18} /> },
+  { to: '/property-marketing', label: 'AI Marketing', icon: <Megaphone size={18} /> },
   { to: '/settings', label: 'Settings', icon: <Settings size={18} /> },
 ]
 
@@ -189,10 +194,12 @@ function ModeSwitcher({ mode, onChange, collapsed }: { mode: PlatformMode; onCha
 }
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
-  const { user, tenant, isLoading, isInitialized } = useAuthStore()
+  usePageTracking()
+  const { user, tenant, isInitialized } = useAuthStore()
   const { sidebarCollapsed, toggleSidebar } = useUIStore()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
+  const [lang, setLang] = useState<SupportedLang>(getCurrentLanguage)
   const [activeMode, setActiveMode] = useState<PlatformMode>(() => {
     const saved = sessionStorage.getItem('platform_mode') as PlatformMode | null
     return saved ?? 'hotel'
@@ -209,7 +216,22 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     navigate(m === 'hotel' ? '/dashboard' : '/property/dashboard')
   }
 
-  const navItems = currentMode === 'property' ? propertyNavItems : hotelNavItems
+  const role = user?.role ?? 'front_desk'
+
+  const HOTEL_ROLE_NAV: Record<string, string[]> = {
+    admin:        [], // empty = all
+    manager:      [], // all (sub-page restriction handled in settings pages)
+    front_desk:   ['/dashboard', '/bookings', '/rooms', '/guests', '/invoices', '/messaging'],
+    housekeeping: ['/dashboard', '/housekeeping'],
+  }
+
+  function filterNav(items: NavItem[]): NavItem[] {
+    const allowed = HOTEL_ROLE_NAV[role]
+    if (!allowed || allowed.length === 0) return items
+    return items.filter((item) => allowed.some((prefix) => item.to.startsWith(prefix)))
+  }
+
+  const navItems = currentMode === 'property' ? propertyNavItems : filterNav(hotelNavItems)
 
   useEffect(() => {
     function handler(e: KeyboardEvent) {
@@ -222,7 +244,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     return () => document.removeEventListener('keydown', handler)
   }, [])
 
-  if (!isInitialized || isLoading) return <LoadingSpinner fullPage />
+  // Show a minimal full-screen spinner only on the very first cold load
+  if (!isInitialized) return <LoadingSpinner fullPage />
   if (!user) return <Navigate to="/auth/login" replace />
 
   async function handleSignOut() {
@@ -403,16 +426,31 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </button>
 
           <div className="flex-1" />
-          <button className="rounded-md p-1.5 text-subtext hover:bg-light relative">
-            <Bell size={18} />
-          </button>
+
+          {/* Language selector */}
+          <select
+            value={lang}
+            onChange={(e) => {
+              const l = e.target.value as SupportedLang
+              setLang(l)
+              changeLanguage(l)
+            }}
+            className="rounded-lg border border-mid bg-light px-2 py-1 text-xs text-body focus:outline-none focus:ring-1 focus:ring-blue hidden sm:block"
+            title="Language"
+          >
+            {SUPPORTED_LANGUAGES.map((l) => (
+              <option key={l.code} value={l.code}>{l.flag} {l.label}</option>
+            ))}
+          </select>
+
+          <PushNotificationBell />
           <div className="h-8 w-8 rounded-full bg-navy flex items-center justify-center text-xs font-bold text-white">
             {user ? initials(user.full_name) : '?'}
           </div>
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
           {children}
         </main>
       </div>

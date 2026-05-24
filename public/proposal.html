@@ -1,0 +1,1728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TOWNSHUB PMS — Product Proposal</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@700;800&display=swap');
+
+    :root {
+      --primary: #1a1a2e;
+      --accent: #e94560;
+      --gold: #f5a623;
+      --teal: #0f8a9e;
+      --light: #f8f9fc;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --card: #ffffff;
+      --gradient-1: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      --gradient-2: linear-gradient(135deg, #e94560 0%, #f5a623 100%);
+      --gradient-3: linear-gradient(135deg, #0f8a9e 0%, #0f3460 100%);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      color: #1a1a2e;
+      background: #f8f9fc;
+      line-height: 1.6;
+    }
+
+    /* ─── LUCIDE ICON BASE ─── */
+    i[data-lucide] { display: inline-flex; align-items: center; justify-content: center; }
+    i[data-lucide] svg { display: block; }
+
+    /* module icon colours */
+    .ic-blue   i[data-lucide] svg { stroke: #3b82f6; }
+    .ic-green  i[data-lucide] svg { stroke: #22c55e; }
+    .ic-teal   i[data-lucide] svg { stroke: #0f8a9e; }
+    .ic-orange i[data-lucide] svg { stroke: #f97316; }
+    .ic-purple i[data-lucide] svg { stroke: #a855f7; }
+    .ic-yellow i[data-lucide] svg { stroke: #ca8a04; }
+    .ic-red    i[data-lucide] svg { stroke: #ef4444; }
+    .ic-pink   i[data-lucide] svg { stroke: #ec4899; }
+    .ic-indigo i[data-lucide] svg { stroke: #6366f1; }
+
+    /* ─── PRINT ─── */
+    @page { margin: 0; }
+    @media print {
+      body { background: #fff; }
+      .page-break { page-break-before: always; }
+      .no-print { display: none; }
+      .cover { min-height: 100vh; }
+      .corp-header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+
+    /* ─── CORPORATE HEADER ─── */
+    .corp-header {
+      background: #0f3460;
+      color: #fff;
+      padding: 14px 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .corp-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .corp-name {
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      color: #fff;
+    }
+    .corp-reg {
+      font-size: 11px;
+      color: rgba(255,255,255,0.55);
+      margin-top: 2px;
+    }
+    .corp-divider {
+      width: 1px; height: 32px;
+      background: rgba(255,255,255,0.2);
+    }
+    .corp-tag {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #f5a623;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .corp-tag i[data-lucide] svg { width: 13px; height: 13px; stroke: #f5a623; }
+    .corp-right {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+    .corp-contact {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: rgba(255,255,255,0.7);
+      text-decoration: none;
+    }
+    .corp-contact i[data-lucide] svg { width: 13px; height: 13px; stroke: rgba(255,255,255,0.55); }
+
+    /* ─── COVER PAGE ─── */
+    .cover {
+      background: var(--gradient-1);
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 60px 80px;
+      position: relative;
+      overflow: hidden;
+    }
+    .cover::before {
+      content: '';
+      position: absolute;
+      top: -200px; right: -200px;
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, rgba(233,69,96,0.18) 0%, transparent 70%);
+      border-radius: 50%;
+    }
+    .cover::after {
+      content: '';
+      position: absolute;
+      bottom: -150px; left: -100px;
+      width: 500px; height: 500px;
+      background: radial-gradient(circle, rgba(15,138,158,0.15) 0%, transparent 70%);
+      border-radius: 50%;
+    }
+    .cover-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 1;
+    }
+    .logo-wrap img {
+      height: 56px;
+      object-fit: contain;
+      filter: brightness(10);
+    }
+    .cover-badge {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 100px;
+      padding: 8px 20px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      backdrop-filter: blur(10px);
+    }
+    .cover-center {
+      z-index: 1;
+      text-align: center;
+    }
+    .cover-eyebrow {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: rgba(245,166,35,0.9);
+      margin-bottom: 20px;
+    }
+    .cover-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 72px;
+      font-weight: 800;
+      line-height: 1.1;
+      margin-bottom: 12px;
+    }
+    .cover-title span {
+      background: var(--gradient-2);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .cover-subtitle {
+      font-size: 22px;
+      font-weight: 300;
+      color: rgba(255,255,255,0.75);
+      margin-bottom: 40px;
+      letter-spacing: 0.02em;
+    }
+    .cover-pills {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .pill {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 100px;
+      padding: 10px 20px;
+      font-size: 13px;
+      font-weight: 500;
+      backdrop-filter: blur(6px);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .pill i[data-lucide] svg { stroke: rgba(255,255,255,0.75); width: 14px; height: 14px; }
+    .cover-bottom {
+      z-index: 1;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+    }
+    .cover-stats {
+      display: flex;
+      gap: 48px;
+    }
+    .cover-stat-num {
+      font-size: 36px;
+      font-weight: 800;
+      color: #f5a623;
+      line-height: 1;
+    }
+    .cover-stat-label {
+      font-size: 12px;
+      color: rgba(255,255,255,0.6);
+      margin-top: 4px;
+    }
+    .cover-date {
+      font-size: 12px;
+      color: rgba(255,255,255,0.45);
+    }
+
+    /* ─── SECTIONS ─── */
+    .section {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 80px 40px;
+    }
+    .section-eyebrow {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 10px;
+    }
+    .section-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 40px;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 16px;
+      line-height: 1.2;
+    }
+    .section-lead {
+      font-size: 17px;
+      color: var(--muted);
+      max-width: 680px;
+      margin-bottom: 48px;
+      line-height: 1.7;
+    }
+
+    /* ─── EXECUTIVE SUMMARY ─── */
+    .exec-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+    }
+    .exec-box {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 32px;
+      border: 1px solid var(--border);
+      box-shadow: 0 2px 20px rgba(0,0,0,0.04);
+    }
+    .exec-box.accent {
+      background: var(--gradient-1);
+      color: #fff;
+      border: none;
+    }
+    .exec-box h3 { font-size: 18px; font-weight: 700; margin-bottom: 12px; }
+    .exec-box p  { font-size: 14px; line-height: 1.8; color: var(--muted); }
+    .exec-box.accent p  { color: rgba(255,255,255,0.75); }
+    .exec-box.accent h3 { color: #f5a623; }
+
+    /* ─── STAT ROW ─── */
+    .stat-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px;
+      margin: 48px 0;
+    }
+    .stat-card {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 28px 24px;
+      border: 1px solid var(--border);
+      text-align: center;
+      box-shadow: 0 2px 20px rgba(0,0,0,0.04);
+    }
+    .stat-num {
+      font-size: 42px;
+      font-weight: 900;
+      line-height: 1;
+      margin-bottom: 8px;
+      background: var(--gradient-2);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .stat-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    /* ─── DIVIDER ─── */
+    .divider {
+      background: var(--gradient-1);
+      color: #fff;
+      padding: 64px 40px;
+      text-align: center;
+    }
+    .divider h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: 36px;
+      margin-bottom: 12px;
+    }
+    .divider p {
+      font-size: 16px;
+      color: rgba(255,255,255,0.7);
+      max-width: 560px;
+      margin: 0 auto;
+    }
+
+    /* ─── MODULE CARDS ─── */
+    .module-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+    .module-card {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 28px 24px;
+      border: 1px solid var(--border);
+      box-shadow: 0 2px 20px rgba(0,0,0,0.04);
+    }
+    .module-icon {
+      width: 48px; height: 48px;
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 16px;
+      flex-shrink: 0;
+    }
+    .module-icon i[data-lucide] svg { width: 22px; height: 22px; stroke-width: 1.75; }
+    .module-card h3 {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: var(--primary);
+    }
+    .module-card p {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.7;
+      margin-bottom: 0;
+    }
+    .module-card ul {
+      list-style: none;
+      margin-top: 12px;
+    }
+    .module-card ul li {
+      font-size: 12px;
+      color: var(--muted);
+      padding: 3px 0 3px 18px;
+      position: relative;
+      line-height: 1.5;
+    }
+    .module-card ul li::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 8px;
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #22c55e;
+    }
+
+    /* icon bg colours */
+    .ic-red    { background: #fef2f2; }
+    .ic-blue   { background: #eff6ff; }
+    .ic-green  { background: #f0fdf4; }
+    .ic-purple { background: #faf5ff; }
+    .ic-orange { background: #fff7ed; }
+    .ic-teal   { background: #f0fdfa; }
+    .ic-pink   { background: #fdf2f8; }
+    .ic-yellow { background: #fefce8; }
+    .ic-indigo { background: #eef2ff; }
+
+    /* ─── SMART FEATURES SECTION ─── */
+    .smart-section {
+      background: var(--gradient-1);
+      padding: 80px 40px;
+    }
+    .smart-section .section-eyebrow { color: #f5a623; }
+    .smart-section .section-title   { color: #fff; }
+    .smart-section .section-lead    { color: rgba(255,255,255,0.7); }
+    .smart-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+    .smart-card {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 16px;
+      padding: 28px 24px;
+      color: #fff;
+      backdrop-filter: blur(10px);
+    }
+    .smart-card-icon {
+      width: 52px; height: 52px;
+      border-radius: 14px;
+      background: rgba(245,166,35,0.15);
+      border: 1px solid rgba(245,166,35,0.25);
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 16px;
+    }
+    .smart-card-icon i[data-lucide] svg { width: 24px; height: 24px; stroke: #f5a623; stroke-width: 1.75; }
+    .smart-card h3 { font-size: 16px; font-weight: 700; margin-bottom: 8px; color: #f5a623; }
+    .smart-card p  { font-size: 13px; color: rgba(255,255,255,0.72); line-height: 1.7; }
+    .smart-card ul { list-style: none; margin-top: 12px; }
+    .smart-card ul li {
+      font-size: 12px;
+      color: rgba(255,255,255,0.62);
+      padding: 3px 0 3px 16px;
+      position: relative;
+      line-height: 1.5;
+    }
+    .smart-card ul li::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 8px;
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: #f5a623;
+    }
+
+    /* ─── PRICING ─── */
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      align-items: start;
+    }
+    .pricing-card {
+      background: var(--card);
+      border-radius: 20px;
+      padding: 36px 28px;
+      border: 2px solid var(--border);
+      text-align: center;
+      box-shadow: 0 2px 20px rgba(0,0,0,0.04);
+      position: relative;
+    }
+    .pricing-card.featured {
+      background: var(--gradient-1);
+      color: #fff;
+      border: 2px solid transparent;
+      box-shadow: 0 24px 64px rgba(26,26,46,0.28);
+      border-top: 4px solid #f5a623;
+    }
+    .popular-badge {
+      position: absolute;
+      top: -14px; left: 50%;
+      transform: translateX(-50%);
+      background: var(--gradient-2);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      border-radius: 100px;
+      padding: 6px 18px;
+      white-space: nowrap;
+    }
+    .plan-name {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .featured .plan-name { color: rgba(255,255,255,0.6); }
+    .plan-price {
+      font-size: 52px;
+      font-weight: 900;
+      color: var(--primary);
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+    .featured .plan-price { color: #f5a623; }
+    .plan-per {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 28px;
+    }
+    .featured .plan-per { color: rgba(255,255,255,0.6); }
+    .plan-features {
+      list-style: none;
+      text-align: left;
+      margin-bottom: 28px;
+    }
+    .plan-features li {
+      font-size: 13px;
+      padding: 7px 0 7px 22px;
+      border-bottom: 1px solid var(--border);
+      color: #374151;
+      position: relative;
+      line-height: 1.4;
+    }
+    .featured .plan-features li {
+      border-color: rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.85);
+    }
+    .plan-features li::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 12px;
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: #22c55e;
+    }
+    .plan-btn {
+      display: block;
+      width: 100%;
+      padding: 14px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 700;
+      text-align: center;
+      cursor: pointer;
+      border: 2px solid var(--primary);
+      color: var(--primary);
+      background: transparent;
+      text-decoration: none;
+    }
+    .featured .plan-btn {
+      background: var(--gradient-2);
+      border-color: transparent;
+      color: #fff;
+    }
+
+    /* ─── FEATURE TABLE ─── */
+    .feature-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .feature-table th {
+      background: var(--primary);
+      color: #fff;
+      padding: 14px 16px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 12px;
+      letter-spacing: 0.05em;
+    }
+    .feature-table th:first-child { border-radius: 8px 0 0 0; }
+    .feature-table th:last-child  { border-radius: 0 8px 0 0; }
+    .feature-table td {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      color: #374151;
+    }
+    .feature-table tr:nth-child(even) td { background: #f9fafb; }
+    .check { color: #22c55e; font-weight: 700; }
+    .dash  { color: #d1d5db; }
+
+    /* ─── INTEGRATION CHIPS ─── */
+    .integrations-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 32px;
+    }
+    .integration-chip {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 18px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .integration-chip i[data-lucide] svg { width: 15px; height: 15px; stroke: var(--teal); stroke-width: 2; }
+
+    /* ─── TECH STACK ─── */
+    .tech-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-top: 32px;
+    }
+    .tech-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 22px 16px;
+      text-align: center;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+    }
+    .tech-icon {
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .tech-icon i[data-lucide] svg { width: 28px; height: 28px; stroke: var(--primary); stroke-width: 1.5; }
+    .tech-name { font-size: 13px; font-weight: 700; color: var(--primary); line-height: 1.3; }
+    .tech-desc { font-size: 11px; color: var(--muted); margin-top: 3px; }
+
+    /* ─── CTA ─── */
+    .cta-section {
+      background: var(--gradient-2);
+      color: #fff;
+      padding: 100px 40px;
+      text-align: center;
+    }
+    .cta-section h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: 48px;
+      font-weight: 800;
+      margin-bottom: 16px;
+    }
+    .cta-section p {
+      font-size: 18px;
+      color: rgba(255,255,255,0.85);
+      max-width: 560px;
+      margin: 0 auto 36px;
+    }
+    .cta-buttons { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+    .btn-white {
+      background: #fff; color: var(--accent);
+      font-weight: 700; font-size: 15px;
+      padding: 16px 36px; border-radius: 10px;
+      text-decoration: none; border: none; cursor: pointer;
+    }
+    .btn-outline {
+      background: transparent; color: #fff;
+      font-weight: 700; font-size: 15px;
+      padding: 16px 36px; border-radius: 10px;
+      text-decoration: none;
+      border: 2px solid rgba(255,255,255,0.5); cursor: pointer;
+    }
+
+    /* ─── FOOTER ─── */
+    .footer {
+      background: var(--primary);
+      color: rgba(255,255,255,0.5);
+      padding: 40px;
+      text-align: center;
+      font-size: 12px;
+    }
+    .footer strong { color: #fff; }
+
+    /* ─── HIGHLIGHT BOX ─── */
+    .highlight-box {
+      background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+      border-left: 4px solid #f59e0b;
+      border-radius: 0 12px 12px 0;
+      padding: 20px 24px;
+      margin: 32px 0;
+    }
+    .highlight-box p {
+      font-size: 14px; color: #92400e;
+      font-weight: 500; line-height: 1.7;
+    }
+
+    /* ─── PROPERTY MODULE ─── */
+    .pm-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
+    }
+    .pm-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+    }
+    .pm-card h4 {
+      font-size: 15px; font-weight: 700;
+      color: var(--primary); margin-bottom: 10px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .pm-card h4 i[data-lucide] svg { width: 18px; height: 18px; stroke: var(--teal); stroke-width: 2; }
+    .pm-card ul { list-style: none; margin-top: 8px; }
+    .pm-card ul li {
+      font-size: 12px; color: var(--muted);
+      padding: 3px 0 3px 16px;
+      position: relative; line-height: 1.5;
+    }
+    .pm-card ul li::before {
+      content: '';
+      position: absolute; left: 0; top: 8px;
+      width: 5px; height: 5px; border-radius: 50%;
+      background: var(--teal);
+    }
+
+    /* ─── ROLE SECTION ─── */
+    .role-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+    .role-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px 20px;
+      text-align: center;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+    }
+    .role-icon {
+      width: 56px; height: 56px;
+      border-radius: 16px;
+      background: #f1f5f9;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 12px;
+    }
+    .role-icon i[data-lucide] svg { width: 26px; height: 26px; stroke: var(--primary); stroke-width: 1.75; }
+    .role-card h4 { font-size: 14px; font-weight: 700; color: var(--primary); margin-bottom: 6px; }
+    .role-card p  { font-size: 12px; color: var(--muted); line-height: 1.6; }
+
+    /* ─── LANGUAGE BADGES ─── */
+    .lang-badges { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
+    .lang-badge {
+      display: flex; align-items: center; gap: 8px;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 16px;
+      font-size: 13px; font-weight: 600;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.04);
+    }
+    .lang-badge i[data-lucide] svg { width: 14px; height: 14px; stroke: var(--teal); }
+    .lang-dot {
+      width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+    }
+
+    /* Print button */
+    .print-btn {
+      background: var(--gradient-2);
+      color: #fff; border: none; border-radius: 12px;
+      padding: 14px 28px; font-size: 14px; font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 8px 30px rgba(233,69,96,0.35);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .print-btn i[data-lucide] svg { width: 18px; height: 18px; stroke: #fff; stroke-width: 2; }
+
+    .full-width-bg-light { background: #fff; }
+
+    /* ═══════════════════════════════════════════
+       MOBILE — max-width 768px
+    ═══════════════════════════════════════════ */
+    @media (max-width: 768px) {
+
+      /* Corporate header */
+      .corp-header {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 14px 20px;
+        gap: 12px;
+      }
+      .corp-left  { flex-wrap: wrap; gap: 10px; }
+      .corp-right { flex-wrap: wrap; gap: 12px; }
+      .corp-divider { display: none; }
+      .corp-tag { font-size: 10px; }
+      .corp-contact { font-size: 11px; }
+
+      /* Cover */
+      .cover { padding: 36px 24px; min-height: auto; }
+      .cover-title { font-size: 46px; }
+      .cover-subtitle { font-size: 16px; margin-bottom: 28px; }
+      .cover-eyebrow { font-size: 11px; margin-bottom: 14px; }
+      .cover-top { flex-direction: column; align-items: flex-start; gap: 12px; }
+      .cover-badge { font-size: 10px; padding: 6px 14px; }
+      .logo-wrap img { height: 42px; }
+      .cover-pills { gap: 8px; }
+      .pill { font-size: 12px; padding: 8px 14px; }
+      .cover-bottom {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 20px;
+        margin-top: 32px;
+      }
+      .cover-stats { gap: 24px; flex-wrap: wrap; }
+      .cover-stat-num { font-size: 28px; }
+      .cover-stat-label { font-size: 11px; }
+      .cover-date { font-size: 11px; }
+
+      /* Sections */
+      .section { padding: 48px 20px; }
+      .section-title { font-size: 28px; }
+      .section-lead  { font-size: 15px; margin-bottom: 32px; }
+
+      /* Dividers */
+      .divider { padding: 48px 24px; }
+      .divider h2 { font-size: 24px; }
+      .divider p  { font-size: 14px; }
+
+      /* Grids → single column */
+      .exec-grid    { grid-template-columns: 1fr; gap: 20px; }
+      .module-grid  { grid-template-columns: 1fr; gap: 16px; }
+      .smart-grid   { grid-template-columns: 1fr; gap: 16px; }
+      .pm-grid      { grid-template-columns: 1fr; gap: 16px; }
+      .pricing-grid { grid-template-columns: 1fr; gap: 24px; }
+      .role-grid    { grid-template-columns: 1fr 1fr; gap: 12px; }
+      .stat-row     { grid-template-columns: 1fr 1fr; gap: 12px; margin: 32px 0; }
+      .tech-row     { grid-template-columns: 1fr 1fr; gap: 12px; }
+
+      /* Cards */
+      .exec-box   { padding: 24px 20px; }
+      .module-card { padding: 22px 18px; }
+      .smart-card  { padding: 22px 18px; }
+      .pricing-card { padding: 28px 20px; }
+      .pm-card    { padding: 20px; }
+      .role-card  { padding: 18px 14px; }
+      .stat-card  { padding: 20px 16px; }
+      .tech-card  { padding: 16px 12px; }
+
+      /* Smart section inner padding */
+      .smart-section { padding: 48px 20px; }
+      .smart-section > div { padding: 0 !important; }
+
+      /* Feature table — horizontal scroll */
+      .feature-table-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        border-radius: 8px;
+      }
+      .feature-table { min-width: 520px; font-size: 12px; }
+      .feature-table th,
+      .feature-table td { padding: 10px 12px; }
+
+      /* Feature table section wrapper */
+      div[style*="padding: 0 40px 80px"] {
+        padding: 0 20px 48px !important;
+      }
+
+      /* Pricing */
+      .pricing-card.featured { border-top-width: 4px; }
+      .plan-price { font-size: 42px; }
+
+      /* CTA */
+      .cta-section { padding: 64px 24px; }
+      .cta-section h2 { font-size: 30px; }
+      .cta-section p  { font-size: 15px; }
+      .btn-white, .btn-outline { padding: 14px 24px; font-size: 14px; width: 100%; text-align: center; }
+      .cta-buttons { flex-direction: column; align-items: center; }
+
+      /* Footer */
+      .footer { padding: 32px 20px; }
+
+      /* Print button */
+      .no-print { bottom: 16px !important; right: 16px !important; }
+      .print-btn { padding: 12px 20px; font-size: 13px; }
+
+      /* Integrations */
+      .integrations-row { gap: 8px; }
+      .integration-chip { padding: 8px 14px; font-size: 12px; }
+
+      /* Lang badges */
+      .lang-badges { gap: 8px; }
+    }
+
+    /* Tablet — max-width 1024px */
+    @media (min-width: 769px) and (max-width: 1024px) {
+      .cover { padding: 48px 48px; }
+      .cover-title { font-size: 58px; }
+      .section { padding: 64px 32px; }
+      .module-grid  { grid-template-columns: 1fr 1fr; }
+      .smart-grid   { grid-template-columns: 1fr 1fr; }
+      .role-grid    { grid-template-columns: 1fr 1fr; }
+      .tech-row     { grid-template-columns: repeat(4, 1fr); }
+      .corp-header  { padding: 14px 32px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════ CORPORATE HEADER -->
+<div class="corp-header">
+  <div class="corp-left">
+    <div>
+      <div class="corp-name">TOWNSHUB LIMITED</div>
+      <div class="corp-reg">Cyprus Company &nbsp;·&nbsp; Registration No. HE 481530</div>
+    </div>
+    <div class="corp-divider"></div>
+    <div class="corp-tag"><i data-lucide="shield-check"></i> EU Compliant</div>
+    <div class="corp-tag"><i data-lucide="flag"></i> Republic of Cyprus</div>
+  </div>
+  <div class="corp-right">
+    <a class="corp-contact" href="tel:+35796186440"><i data-lucide="phone"></i> +357 96 186 440</a>
+    <a class="corp-contact" href="mailto:admin@townshub.cy"><i data-lucide="mail"></i> admin@townshub.cy</a>
+    <a class="corp-contact" href="https://townshub.cy"><i data-lucide="globe"></i> townshub.cy</a>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ COVER PAGE -->
+<div class="cover">
+  <div class="cover-top">
+    <div class="logo-wrap">
+      <img src="/logo-white.jpg" alt="TOWNSHUB"
+           onerror="this.style.display='none'; this.parentNode.innerHTML='<span style=\'font-size:28px;font-weight:900;letter-spacing:-0.02em\'>TOWNS<span style=\'color:#e94560\'>HUB</span></span>'" />
+    </div>
+    <div class="cover-badge">Product Proposal 2026</div>
+  </div>
+
+  <div class="cover-center">
+    <div class="cover-eyebrow">All-in-One Property Management Platform</div>
+    <h1 class="cover-title">TOWNSHUB<br/><span>PMS</span></h1>
+    <p class="cover-subtitle">The Intelligent Hotel &amp; Property Management System<br/>A Cyprus-Registered, EU-Compliant Hospitality Platform</p>
+    <div class="cover-pills">
+      <span class="pill"><i data-lucide="hotel"></i> Hotel Management</span>
+      <span class="pill"><i data-lucide="building-2"></i> Property Management</span>
+      <span class="pill"><i data-lucide="cpu"></i> Smart Automation</span>
+      <span class="pill"><i data-lucide="smartphone"></i> PWA Mobile</span>
+      <span class="pill"><i data-lucide="globe"></i> Multi-Language</span>
+    </div>
+  </div>
+
+  <div class="cover-bottom">
+    <div class="cover-stats">
+      <div>
+        <div class="cover-stat-num">70+</div>
+        <div class="cover-stat-label">Features &amp; Pages</div>
+      </div>
+      <div>
+        <div class="cover-stat-num">3</div>
+        <div class="cover-stat-label">Pricing Tiers</div>
+      </div>
+      <div>
+        <div class="cover-stat-num">3</div>
+        <div class="cover-stat-label">Smart Engines</div>
+      </div>
+      <div>
+        <div class="cover-stat-num">3</div>
+        <div class="cover-stat-label">Languages</div>
+      </div>
+    </div>
+    <div class="cover-date">Prepared: May 2026 &nbsp;·&nbsp; townshub.cy</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ EXECUTIVE SUMMARY -->
+<div class="page-break"></div>
+<div class="section">
+  <div class="section-eyebrow">Executive Summary</div>
+  <h2 class="section-title">A Complete Platform for<br/>Modern Hospitality Operations</h2>
+  <p class="section-lead">TOWNSHUB PMS is a multi-tenant, cloud SaaS platform that unifies hotel operations, guest experience, property management, and business intelligence into a single, beautifully designed interface.</p>
+
+  <div class="exec-grid">
+    <div class="exec-box accent">
+      <h3>What is TOWNSHUB PMS?</h3>
+      <p>TOWNSHUB is an enterprise-grade Property Management System designed for hotels, vacation rentals, boutique properties, and property management companies. It replaces fragmented software stacks with one integrated platform — from front desk operations to automated marketing content generation.</p>
+    </div>
+    <div class="exec-box">
+      <h3>Who is it for?</h3>
+      <p>Hotel owners and managers seeking operational efficiency, boutique properties wanting a modern guest experience, property management companies handling multi-unit portfolios, and hospitality groups that need real-time reporting across locations.</p>
+    </div>
+    <div class="exec-box">
+      <h3>The Problem We Solve</h3>
+      <p>Hoteliers today juggle 5–8 disconnected tools: a PMS, a channel manager, a CRM, a maintenance app, an F&amp;B system, a marketing tool, and a reporting dashboard. TOWNSHUB unifies all of them — saving time, reducing errors, and improving the guest experience.</p>
+    </div>
+    <div class="exec-box">
+      <h3>Our Competitive Edge</h3>
+      <p>Built-in intelligent guest concierge, staff automation, and content generation tools. A dual-mode platform covering both hotel operations and residential property management. QR-code guest experience layer and PWA mobile capabilities — no app store required.</p>
+    </div>
+  </div>
+
+  <div class="stat-row">
+    <div class="stat-card">
+      <div class="stat-num">70+</div>
+      <div class="stat-label">Feature Modules</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num">100%</div>
+      <div class="stat-label">Cloud-Based SaaS</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num">3</div>
+      <div class="stat-label">Smart Engines</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num">&#x221E;</div>
+      <div class="stat-label">Properties Supported</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ CORE MODULES -->
+<div class="divider">
+  <h2>Core Hotel PMS Modules</h2>
+  <p>Everything a hotel needs to run — in one platform, zero integration headaches.</p>
+</div>
+
+<div class="full-width-bg-light">
+<div class="section">
+  <div class="section-eyebrow">Module Overview</div>
+  <h2 class="section-title">Hotel Operations Suite</h2>
+  <p class="section-lead">TOWNSHUB covers every corner of hotel operations with purpose-built modules that are connected, real-time, and beautifully designed.</p>
+
+  <div class="module-grid">
+
+    <div class="module-card">
+      <div class="module-icon ic-blue"><i data-lucide="calendar"></i></div>
+      <h3>Booking &amp; Reservations</h3>
+      <p>Full-lifecycle reservation management from creation to checkout.</p>
+      <ul>
+        <li>Multi-source bookings (OTA, direct, walk-in)</li>
+        <li>Real-time availability calendar</li>
+        <li>Group &amp; corporate bookings</li>
+        <li>Modification, cancellation &amp; refunds</li>
+        <li>Pre-arrival messaging workflow</li>
+        <li>No-show &amp; overbooking handling</li>
+      </ul>
+    </div>
+
+    <div class="module-card">
+      <div class="module-icon ic-green"><i data-lucide="bed"></i></div>
+      <h3>Room &amp; Rate Management</h3>
+      <p>Complete inventory control with dynamic pricing capabilities.</p>
+      <ul>
+        <li>Room type definitions &amp; amenities</li>
+        <li>Real-time room status board</li>
+        <li>Seasonal rate tables</li>
+        <li>Maintenance &amp; out-of-order blocking</li>
+        <li>Occupancy forecasting</li>
+        <li>Rate strategy tools (ADR, RevPAR)</li>
+      </ul>
+    </div>
+
+    <div class="module-card">
+      <div class="module-icon ic-teal"><i data-lucide="sparkles"></i></div>
+      <h3>Housekeeping Management</h3>
+      <p>Automated task generation and mobile-friendly assignment board.</p>
+      <ul>
+        <li>Auto-task creation on checkout/check-in</li>
+        <li>Task types: clean, turndown, inspection</li>
+        <li>Priority levels &amp; SLA tracking</li>
+        <li>Staff assignment &amp; progress tracking</li>
+        <li>Turnaround time analytics</li>
+        <li>Mobile-optimized task board</li>
+      </ul>
+    </div>
+
+    <div class="module-card">
+      <div class="module-icon ic-orange"><i data-lucide="wrench"></i></div>
+      <h3>Maintenance Requests</h3>
+      <p>End-to-end maintenance ticket management with SLA enforcement.</p>
+      <ul>
+        <li>Ticket creation: plumbing, electrical, HVAC</li>
+        <li>Priority-based assignment</li>
+        <li>Status: open &rarr; assigned &rarr; completed</li>
+        <li>SLA monitoring &amp; escalation</li>
+        <li>Maintenance history per room</li>
+        <li>Staff workload reporting</li>
+      </ul>
+    </div>
+
+    <div class="module-card">
+      <div class="module-icon ic-purple"><i data-lucide="users"></i></div>
+      <h3>Guest CRM &amp; Directory</h3>
+      <p>Comprehensive guest profiles powering personalized hospitality.</p>
+      <ul>
+        <li>Full stay history &amp; preferences</li>
+        <li>VIP tagging &amp; special requests</li>
+        <li>Communication history log</li>
+        <li>Guest segmentation for marketing</li>
+        <li>Do-not-disturb, wake-up call tracking</li>
+        <li>Corporate account linkage</li>
+      </ul>
+    </div>
+
+    <div class="module-card">
+      <div class="module-icon ic-yellow"><i data-lucide="receipt"></i></div>
+      <h3>Invoicing &amp; Payments</h3>
+      <p>Complete billing cycle from deposit to final invoice.</p>
+      <ul>
+        <li>Auto-generated folios &amp; invoices</li>
+        <li>Multi-currency: EUR, USD, GBP, AED, NGN</li>
+        <li>Payment methods: cash, card, Stripe, bank</li>
+        <li>Tax/VAT calculation</li>
+        <li>Partial payments &amp; deposits</li>
+        <li>PDF export &amp; email delivery</li>
+      </ul>
+    </div>
+
+    <div class="module-card">
+      <div class="module-icon ic-red"><i data-lucide="utensils"></i></div>
+      <h3>Food &amp; Beverage (F&amp;B)</h3>
+      <p>Digital menus, order management, and a live Kitchen Display System.</p>
+      <ul>
+        <li>Digital menu management &amp; QR codes</li>
+        <li>Order types: room service, table, poolside</li>
+        <li>Real-time Kitchen Display System (KDS)</li>
+        <li>Order status lifecycle management</li>
+        <li>F&amp;B revenue &amp; item analytics</li>
+        <li>Menu availability controls</li>
+      </ul>
+    </div>
+
+    <div class="module-card">
+      <div class="module-icon ic-pink"><i data-lucide="megaphone"></i></div>
+      <h3>Communications &amp; Campaigns</h3>
+      <p>Email, SMS, and in-app campaigns to engage guests at every stage.</p>
+      <ul>
+        <li>Email &amp; SMS campaign builder</li>
+        <li>Trigger types: pre-arrival, in-stay, post-stay</li>
+        <li>Guest satisfaction surveys</li>
+        <li>In-stay messaging &amp; concierge chat</li>
+        <li>Push notification delivery</li>
+        <li>Template customization</li>
+      </ul>
+    </div>
+
+    <div class="module-card">
+      <div class="module-icon ic-indigo"><i data-lucide="bar-chart-3"></i></div>
+      <h3>Reports &amp; Business Intelligence</h3>
+      <p>From daily KPIs to executive dashboards and custom report builders.</p>
+      <ul>
+        <li>Real-time KPI dashboard</li>
+        <li>Occupancy &amp; ADR/RevPAR reporting</li>
+        <li>Custom report builder</li>
+        <li>Executive C-suite dashboard</li>
+        <li>Revenue trend charts</li>
+        <li>Export to CSV/Excel</li>
+      </ul>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ MORE MODULES -->
+<div class="section">
+  <div class="section-eyebrow">Additional Modules</div>
+  <h2 class="section-title">Beyond the Basics</h2>
+  <p class="section-lead">From loyalty programs to channel management and vouchers — TOWNSHUB goes far beyond standard PMS offerings.</p>
+
+  <div class="module-grid">
+
+    <div class="module-card">
+      <div class="module-icon ic-yellow"><i data-lucide="star"></i></div>
+      <h3>Loyalty Program</h3>
+      <p>Tiered loyalty system to drive repeat bookings and guest retention.</p>
+      <ul>
+        <li>Tiers: Bronze, Silver, Gold, Platinum</li>
+        <li>Point earning &amp; redemption rules</li>
+        <li>Tier benefits &amp; upgrade logic</li>
+        <li>Point expiration management</li>
+        <li>Loyalty ROI analytics</li>
+      </ul>
+    </div>
+
+    <div class="module-card">
+      <div class="module-icon ic-blue"><i data-lucide="building-2"></i></div>
+      <h3>Corporate Accounts</h3>
+      <p>Group and corporate client management with dedicated billing.</p>
+      <ul>
+        <li>Corporate account creation</li>
+        <li>Group rate management</li>
+        <li>Bulk booking coordination</li>
+        <li>Contract &amp; billing management</li>
+        <li>Account status tracking</li>
+      </ul>
+    </div>
+
+    <div class="module-card">
+      <div class="module-icon ic-teal"><i data-lucide="globe"></i></div>
+      <h3>Channel Manager</h3>
+      <p>Real-time sync with OTAs and online booking channels.</p>
+      <ul>
+        <li>Booking.com, Expedia, Airbnb integration</li>
+        <li>Live rate &amp; availability push</li>
+        <li>Multi-property distribution</li>
+        <li>Reservation import &amp; reconciliation</li>
+        <li>Channel performance analytics</li>
+      </ul>
+    </div>
+
+    <div class="module-card">
+      <div class="module-icon ic-green"><i data-lucide="gift"></i></div>
+      <h3>Packages, Promotions &amp; Vouchers</h3>
+      <p>Flexible revenue tools to boost direct bookings.</p>
+      <ul>
+        <li>Custom room packages &amp; bundles</li>
+        <li>Promotional discount codes</li>
+        <li>Gift voucher generation &amp; tracking</li>
+        <li>Date-range &amp; segment targeting</li>
+        <li>Promotion performance reports</li>
+      </ul>
+    </div>
+
+    <div class="module-card">
+      <div class="module-icon ic-purple"><i data-lucide="map-pin"></i></div>
+      <h3>Concierge &amp; Local Guide</h3>
+      <p>A digital local guide embedded in the guest-facing smart concierge.</p>
+      <ul>
+        <li>Restaurants, attractions, activities</li>
+        <li>Pricing &amp; booking integrations</li>
+        <li>Intelligent recommendations</li>
+        <li>Availability updates</li>
+        <li>QR-code accessible by guests</li>
+      </ul>
+    </div>
+
+    <div class="module-card">
+      <div class="module-icon ic-orange"><i data-lucide="clock"></i></div>
+      <h3>Waitlist Management</h3>
+      <p>Smart waitlist for overbooked periods with automatic matching.</p>
+      <ul>
+        <li>Guest waitlist queue</li>
+        <li>Automatic availability matching</li>
+        <li>Notification &amp; confirmation flow</li>
+        <li>Status: waiting &rarr; offered &rarr; confirmed</li>
+        <li>Waitlist analytics</li>
+      </ul>
+    </div>
+
+    <div class="module-card">
+      <div class="module-icon ic-red"><i data-lucide="file-search"></i></div>
+      <h3>Audit Log</h3>
+      <p>Complete system audit trail for compliance and accountability.</p>
+      <ul>
+        <li>All operations logged with user &amp; timestamp</li>
+        <li>Filterable by user, action type, date</li>
+        <li>Data change history</li>
+        <li>Export for compliance</li>
+      </ul>
+    </div>
+
+    <div class="module-card">
+      <div class="module-icon ic-indigo"><i data-lucide="user-cog"></i></div>
+      <h3>Staff Management</h3>
+      <p>Full HR-lite module for hotel staff, schedules, and permissions.</p>
+      <ul>
+        <li>Staff profiles &amp; role assignment</li>
+        <li>Shift scheduling &amp; roster</li>
+        <li>Role-based access control</li>
+        <li>Activity tracking per staff</li>
+        <li>Performance insights</li>
+      </ul>
+    </div>
+
+    <div class="module-card">
+      <div class="module-icon ic-pink"><i data-lucide="clipboard-list"></i></div>
+      <h3>Surveys &amp; Feedback</h3>
+      <p>Custom guest satisfaction surveys delivered at the right moment.</p>
+      <ul>
+        <li>Customizable question types</li>
+        <li>Automated post-stay delivery</li>
+        <li>Branded public survey page</li>
+        <li>Response analytics &amp; NPS</li>
+        <li>Actionable insights dashboard</li>
+      </ul>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ SMART FEATURES SECTION -->
+<div class="page-break"></div>
+<div class="smart-section">
+  <div style="max-width:1000px; margin:0 auto; padding:0 40px;">
+    <div class="section-eyebrow">Smart Automation</div>
+    <h2 class="section-title">Built-In Intelligence</h2>
+    <p class="section-lead">TOWNSHUB includes three built-in intelligent engines that automate guest support, staff guidance, and content creation — eliminating repetitive tasks and raising your service standard without hiring extra headcount.</p>
+    <div class="smart-grid">
+
+      <div class="smart-card">
+        <div class="smart-card-icon"><i data-lucide="message-square"></i></div>
+        <h3>Smart Guest Concierge</h3>
+        <p>A QR-code accessible chat assistant that answers guest questions around the clock, drawing on your live hotel data.</p>
+        <ul>
+          <li>Knows your room types &amp; amenities</li>
+          <li>Answers F&amp;B &amp; menu questions</li>
+          <li>Local recommendations &amp; pricing</li>
+          <li>Multi-language (EN, EL, RU + more)</li>
+          <li>Conversation history per guest</li>
+          <li>Accessible via QR in every room</li>
+        </ul>
+      </div>
+
+      <div class="smart-card">
+        <div class="smart-card-icon"><i data-lucide="trending-up"></i></div>
+        <h3>Smart Marketing Hub</h3>
+        <p>Generate platform-perfect social media copy in seconds — tailored to your property's tone and target audience.</p>
+        <ul>
+          <li>9 platforms: Instagram, TikTok, LinkedIn&hellip;</li>
+          <li>6 tones: luxury, fun, romantic, adventure&hellip;</li>
+          <li>12 content types: spotlights, promos&hellip;</li>
+          <li>Multi-language output (6 languages)</li>
+          <li>One click &rarr; ready-to-post copy</li>
+          <li>Brand voice stays consistent every time</li>
+        </ul>
+      </div>
+
+      <div class="smart-card">
+        <div class="smart-card-icon"><i data-lucide="lightbulb"></i></div>
+        <h3>Smart Staff Assistant</h3>
+        <p>An always-on assistant that guides your team through the system and answers operational questions instantly.</p>
+        <ul>
+          <li>Onboarding guidance for new staff</li>
+          <li>Answers operational questions</li>
+          <li>Best practice recommendations</li>
+          <li>Contextual help on every page</li>
+          <li>Available inside every settings screen</li>
+          <li>Adapts to your property's data</li>
+        </ul>
+      </div>
+
+    </div>
+
+    <div style="margin-top:32px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); border-radius:12px; padding:24px 28px;">
+      <p style="color:rgba(255,255,255,0.9); font-size:14px; line-height:1.9;">
+        <strong style="color:#f5a623;">Fully Integrated &amp; Private:</strong> All three engines operate within your tenant environment — no guest data leaves your account, no third-party logins required. The same intelligent technology trusted by leading enterprises worldwide is wired directly into your daily hotel workflows.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ PROPERTY MGMT MODULE -->
+<div class="page-break"></div>
+<div class="section">
+  <div class="section-eyebrow">Property Management Module</div>
+  <h2 class="section-title">For Residential &amp; Multi-Unit Portfolios</h2>
+  <p class="section-lead">Beyond hotels, TOWNSHUB includes a complete residential Property Management module — manage units, owners, tenants, leases, and rent collection all in one place.</p>
+
+  <div class="highlight-box">
+    <p>The Property Management module serves property managers who oversee residential buildings, vacation rentals, and multi-unit portfolios. It handles the full lifecycle from property onboarding to tenant off-boarding, giving owners a transparent portal into their investments.</p>
+  </div>
+
+  <div class="pm-grid">
+    <div class="pm-card">
+      <h4><i data-lucide="building"></i> Property &amp; Unit Management</h4>
+      <ul>
+        <li>Multi-property portfolio dashboard</li>
+        <li>Unit inventory (apartments, villas, rooms)</li>
+        <li>Amenities, floor plans, photos</li>
+        <li>Unit availability &amp; occupancy tracking</li>
+        <li>Property type: residential, commercial, mixed</li>
+      </ul>
+    </div>
+    <div class="pm-card">
+      <h4><i data-lucide="key"></i> Owner Portal &amp; Relations</h4>
+      <ul>
+        <li>Owner profiles &amp; KYC documents</li>
+        <li>Public owner portal (view properties &amp; income)</li>
+        <li>Owner statements &amp; payment history</li>
+        <li>Management fee calculations</li>
+        <li>Owner communication log</li>
+      </ul>
+    </div>
+    <div class="pm-card">
+      <h4><i data-lucide="file-text"></i> Lease &amp; Tenant Management</h4>
+      <ul>
+        <li>Tenant database &amp; profiles</li>
+        <li>Lease agreement creation &amp; tracking</li>
+        <li>Digital signing &amp; renewal workflows</li>
+        <li>Move-in / move-out inspection checklists</li>
+        <li>Lease termination &amp; deposit management</li>
+      </ul>
+    </div>
+    <div class="pm-card">
+      <h4><i data-lucide="dollar-sign"></i> Rent Collection &amp; Utilities</h4>
+      <ul>
+        <li>Monthly rent tracking &amp; payment status</li>
+        <li>Late payment alerts &amp; reminders</li>
+        <li>Utility billing &amp; consumption tracking</li>
+        <li>Payment history &amp; receipts</li>
+        <li>Revenue reports per property/owner</li>
+      </ul>
+    </div>
+    <div class="pm-card">
+      <h4><i data-lucide="hammer"></i> Maintenance &amp; Inspections</h4>
+      <ul>
+        <li>Maintenance request ticketing</li>
+        <li>Contractor assignment &amp; tracking</li>
+        <li>Scheduled inspection workflows</li>
+        <li>Condition reports &amp; photo documentation</li>
+        <li>Compliance document management</li>
+      </ul>
+    </div>
+    <div class="pm-card">
+      <h4><i data-lucide="megaphone"></i> Property Marketing</h4>
+      <ul>
+        <li>Listing pages for vacant units</li>
+        <li>Automated listing copy generation</li>
+        <li>Lead capture &amp; inquiry management</li>
+        <li>Availability calendars</li>
+        <li>Integration with listing platforms</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ GUEST EXPERIENCE -->
+<div class="divider" style="background: linear-gradient(135deg, #0f8a9e 0%, #0f3460 100%);">
+  <h2>Guest Experience Layer</h2>
+  <p>Public-facing features that delight guests before, during, and after their stay.</p>
+</div>
+
+<div class="full-width-bg-light">
+<div class="section">
+  <div class="section-eyebrow">Guest-Facing Features</div>
+  <h2 class="section-title">Modern, Digital Guest Journey</h2>
+  <p class="section-lead">From pre-arrival self-check-in to in-room QR ordering and post-stay surveys, TOWNSHUB delivers a premium digital experience without requiring a native mobile app.</p>
+
+  <div class="module-grid">
+    <div class="module-card">
+      <div class="module-icon ic-blue"><i data-lucide="smartphone"></i></div>
+      <h3>Digital Pre-Check-In</h3>
+      <p>Guests complete check-in online before arrival via a secure token link — reducing front desk queues and improving the arrival experience.</p>
+    </div>
+    <div class="module-card">
+      <div class="module-icon ic-green"><i data-lucide="qr-code"></i></div>
+      <h3>QR Room Ordering</h3>
+      <p>Each table or room gets a unique QR code. Guests scan to browse the digital menu and place F&amp;B orders directly — no app download needed.</p>
+    </div>
+    <div class="module-card">
+      <div class="module-icon ic-purple"><i data-lucide="message-circle"></i></div>
+      <h3>In-Stay Messaging</h3>
+      <p>Guests message the front desk or concierge in real-time through a simple web interface. Staff see all conversations in one unified inbox.</p>
+    </div>
+    <div class="module-card">
+      <div class="module-icon ic-teal"><i data-lucide="message-square"></i></div>
+      <h3>Smart Guest Chat</h3>
+      <p>A hotel-specific chat assistant accessible via QR code. Answers questions about the hotel, room, local area, menu, and services around the clock.</p>
+    </div>
+    <div class="module-card">
+      <div class="module-icon ic-yellow"><i data-lucide="clipboard-check"></i></div>
+      <h3>Post-Stay Surveys</h3>
+      <p>Branded satisfaction surveys sent automatically after checkout. Fully customizable questions with NPS tracking and actionable insights.</p>
+    </div>
+    <div class="module-card">
+      <div class="module-icon ic-orange"><i data-lucide="bell"></i></div>
+      <h3>Push Notifications</h3>
+      <p>Browser-based push notifications for guests and staff — booking confirmations, housekeeping ready alerts, order status updates, and more.</p>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ SECURITY & ROLES -->
+<div class="page-break"></div>
+<div class="section">
+  <div class="section-eyebrow">Security &amp; Access Control</div>
+  <h2 class="section-title">Enterprise-Grade Security</h2>
+  <p class="section-lead">Role-based access control ensures every team member sees exactly what they need — nothing more, nothing less. Full audit logging keeps you compliant.</p>
+
+  <div class="role-grid">
+    <div class="role-card">
+      <div class="role-icon"><i data-lucide="shield"></i></div>
+      <h4>Admin</h4>
+      <p>Full system access including billing, settings, user management, and audit logs.</p>
+    </div>
+    <div class="role-card">
+      <div class="role-icon"><i data-lucide="briefcase"></i></div>
+      <h4>Manager</h4>
+      <p>Hotel operations access: bookings, guests, reports, communications, and staff management.</p>
+    </div>
+    <div class="role-card">
+      <div class="role-icon"><i data-lucide="concierge-bell"></i></div>
+      <h4>Front Desk</h4>
+      <p>Check-in/out workflow, guest communication, invoicing, and booking modifications.</p>
+    </div>
+    <div class="role-card">
+      <div class="role-icon"><i data-lucide="sparkles"></i></div>
+      <h4>Housekeeping</h4>
+      <p>Task assignment, room status updates, and maintenance request creation — mobile optimized.</p>
+    </div>
+  </div>
+
+  <div style="margin-top: 52px;">
+    <div class="section-eyebrow">Multi-Language Support</div>
+    <h3 style="font-size:22px; font-weight:700; color:var(--primary); margin-bottom:8px;">Built for International Hotels</h3>
+    <p style="font-size:14px; color:var(--muted); margin-bottom:16px;">The full staff interface is available in three languages, with smart-generated marketing content supporting six more.</p>
+    <div class="lang-badges">
+      <div class="lang-badge"><div class="lang-dot" style="background:#012169;"></div> English</div>
+      <div class="lang-badge"><div class="lang-dot" style="background:#0D5EAF;"></div> Greek</div>
+      <div class="lang-badge"><div class="lang-dot" style="background:#CC0000;"></div> Russian</div>
+      <div class="lang-badge" style="background:linear-gradient(135deg,#fef3c7,#fde68a); border-color:#f59e0b; color:#92400e;"><i data-lucide="plus-circle" style="display:inline-flex;"></i>&nbsp;6 via Smart Marketing</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ TECH STACK -->
+<div style="background:#fff; padding:0;">
+<div class="section">
+  <div class="section-eyebrow">Technology</div>
+  <h2 class="section-title">Built on Best-in-Class Infrastructure</h2>
+  <p class="section-lead">TOWNSHUB is built on a modern, serverless stack — scalable from 1 property to thousands, with zero maintenance overhead for customers.</p>
+
+  <div class="tech-row">
+    <div class="tech-card">
+      <div class="tech-icon"><i data-lucide="code-2"></i></div>
+      <div class="tech-name">React 18 + TypeScript</div>
+      <div class="tech-desc">Modern, type-safe frontend</div>
+    </div>
+    <div class="tech-card">
+      <div class="tech-icon"><i data-lucide="database"></i></div>
+      <div class="tech-name">Supabase (PostgreSQL)</div>
+      <div class="tech-desc">Realtime database &amp; auth</div>
+    </div>
+    <div class="tech-card">
+      <div class="tech-icon"><i data-lucide="cpu"></i></div>
+      <div class="tech-name">Intelligent Engine</div>
+      <div class="tech-desc">Guest, staff &amp; marketing automation</div>
+    </div>
+    <div class="tech-card">
+      <div class="tech-icon"><i data-lucide="credit-card"></i></div>
+      <div class="tech-name">Stripe</div>
+      <div class="tech-desc">Subscription billing</div>
+    </div>
+    <div class="tech-card">
+      <div class="tech-icon"><i data-lucide="zap"></i></div>
+      <div class="tech-name">Vercel Serverless</div>
+      <div class="tech-desc">Edge API functions</div>
+    </div>
+    <div class="tech-card">
+      <div class="tech-icon"><i data-lucide="mail"></i></div>
+      <div class="tech-name">SendGrid / Resend</div>
+      <div class="tech-desc">Transactional &amp; bulk email</div>
+    </div>
+    <div class="tech-card">
+      <div class="tech-icon"><i data-lucide="app-window"></i></div>
+      <div class="tech-name">PWA + Service Worker</div>
+      <div class="tech-desc">Install as mobile app</div>
+    </div>
+    <div class="tech-card">
+      <div class="tech-icon"><i data-lucide="bell-ring"></i></div>
+      <div class="tech-name">Web Push (VAPID)</div>
+      <div class="tech-desc">Browser push notifications</div>
+    </div>
+  </div>
+
+  <div style="margin-top: 52px;">
+    <div class="section-eyebrow">Integrations</div>
+    <h3 style="font-size:22px; font-weight:700; color:var(--primary); margin-bottom:8px;">Works with Your Stack</h3>
+    <div class="integrations-row">
+      <div class="integration-chip"><i data-lucide="hotel"></i> Booking.com</div>
+      <div class="integration-chip"><i data-lucide="plane"></i> Expedia</div>
+      <div class="integration-chip"><i data-lucide="home"></i> Airbnb</div>
+      <div class="integration-chip"><i data-lucide="credit-card"></i> Stripe Payments</div>
+      <div class="integration-chip"><i data-lucide="mail"></i> SendGrid</div>
+      <div class="integration-chip"><i data-lucide="send"></i> Resend</div>
+      <div class="integration-chip"><i data-lucide="cpu"></i> Intelligent Engine</div>
+      <div class="integration-chip"><i data-lucide="database"></i> Supabase</div>
+      <div class="integration-chip"><i data-lucide="cloud"></i> Vercel</div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ PRICING -->
+<div class="page-break"></div>
+<div class="section">
+  <div class="section-eyebrow">Pricing</div>
+  <h2 class="section-title">Straightforward, Scalable Pricing</h2>
+  <p class="section-lead">Choose the plan that fits your property. All plans include cloud hosting, automatic updates, and 24/7 support. Annual billing saves up to 20%.</p>
+
+  <div class="pricing-grid">
+    <div class="pricing-card">
+      <div class="plan-name">Essential</div>
+      <div class="plan-price">€299</div>
+      <div class="plan-per">/ month, billed annually</div>
+      <ul class="plan-features">
+        <li>Up to 30 rooms</li>
+        <li>Core PMS (bookings, rooms, guests)</li>
+        <li>Invoicing &amp; basic payments</li>
+        <li>Housekeeping management</li>
+        <li>Email campaigns (500/mo)</li>
+        <li>2 staff users</li>
+        <li>Standard reports</li>
+        <li>Email support</li>
+      </ul>
+      <a class="plan-btn" href="#">Get Started</a>
+    </div>
+
+    <div class="pricing-card featured">
+      <div class="popular-badge">Most Popular</div>
+      <div class="plan-name">Professional</div>
+      <div class="plan-price">€599</div>
+      <div class="plan-per">/ month, billed annually</div>
+      <ul class="plan-features">
+        <li>Up to 100 rooms</li>
+        <li>Everything in Essential</li>
+        <li>F&amp;B + Kitchen Display System</li>
+        <li>Smart Guest Concierge</li>
+        <li>Smart Marketing Hub</li>
+        <li>Loyalty Program</li>
+        <li>Channel Manager integration</li>
+        <li>Custom report builder</li>
+        <li>10 staff users</li>
+        <li>Priority support</li>
+      </ul>
+      <a class="plan-btn" href="#">Start Free Trial</a>
+    </div>
+
+    <div class="pricing-card">
+      <div class="plan-name">Enterprise</div>
+      <div class="plan-price">€1,199</div>
+      <div class="plan-per">/ month, billed annually</div>
+      <ul class="plan-features">
+        <li>Unlimited rooms &amp; properties</li>
+        <li>Everything in Professional</li>
+        <li>Property Management Module</li>
+        <li>Multi-property dashboard</li>
+        <li>White-label branding</li>
+        <li>Executive BI dashboard</li>
+        <li>Unlimited staff users</li>
+        <li>API access &amp; webhooks</li>
+        <li>Dedicated account manager</li>
+        <li>SLA-backed support (99.9% uptime)</li>
+      </ul>
+      <a class="plan-btn" href="#">Contact Sales</a>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ FEATURE COMPARISON TABLE -->
+<div style="background:#fff; padding: 0 40px 80px;">
+  <div style="max-width:1000px; margin:0 auto;">
+    <div class="section-eyebrow" style="padding-top:40px;">Feature Comparison</div>
+    <h3 style="font-family:'Playfair Display',serif; font-size:28px; font-weight:700; color:var(--primary); margin-bottom:24px;">What's Included in Each Plan</h3>
+    <div class="feature-table-wrap">
+    <table class="feature-table">
+      <thead>
+        <tr>
+          <th>Feature</th>
+          <th>Essential</th>
+          <th>Professional</th>
+          <th>Enterprise</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Booking &amp; Reservation Management</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+        <tr><td>Room &amp; Rate Management</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+        <tr><td>Guest CRM &amp; Directory</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+        <tr><td>Housekeeping Management</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+        <tr><td>Invoicing &amp; Payments</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+        <tr><td>Standard Reports Dashboard</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+        <tr><td>Email Campaigns</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+        <tr><td>Food &amp; Beverage Module</td><td class="dash">&#8211;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+        <tr><td>Kitchen Display System (KDS)</td><td class="dash">&#8211;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+        <tr><td>Smart Guest Concierge (QR Chat)</td><td class="dash">&#8211;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+        <tr><td>Smart Marketing Hub</td><td class="dash">&#8211;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+        <tr><td>Smart Staff Assistant</td><td class="dash">&#8211;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+        <tr><td>Loyalty Program</td><td class="dash">&#8211;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+        <tr><td>Channel Manager (OTA Sync)</td><td class="dash">&#8211;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+        <tr><td>Push Notifications</td><td class="dash">&#8211;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+        <tr><td>Custom Report Builder</td><td class="dash">&#8211;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+        <tr><td>Corporate Accounts Module</td><td class="dash">&#8211;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+        <tr><td>Property Management Module</td><td class="dash">&#8211;</td><td class="dash">&#8211;</td><td class="check">&#10003;</td></tr>
+        <tr><td>Multi-Property Dashboard</td><td class="dash">&#8211;</td><td class="dash">&#8211;</td><td class="check">&#10003;</td></tr>
+        <tr><td>Executive BI Dashboard</td><td class="dash">&#8211;</td><td class="dash">&#8211;</td><td class="check">&#10003;</td></tr>
+        <tr><td>White-Label Branding</td><td class="dash">&#8211;</td><td class="dash">&#8211;</td><td class="check">&#10003;</td></tr>
+        <tr><td>API Access &amp; Webhooks</td><td class="dash">&#8211;</td><td class="dash">&#8211;</td><td class="check">&#10003;</td></tr>
+        <tr><td>Dedicated Account Manager</td><td class="dash">&#8211;</td><td class="dash">&#8211;</td><td class="check">&#10003;</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ CTA -->
+<div class="cta-section">
+  <h2>Ready to Transform Your Property?</h2>
+  <p>Join hotels and property managers already running smarter with TOWNSHUB PMS. Start your 14-day free trial — no credit card required.</p>
+  <div class="cta-buttons">
+    <a class="btn-white" href="#">Start Free Trial</a>
+    <a class="btn-outline" href="#">Book a Demo</a>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ FOOTER -->
+<div class="footer">
+  <p><strong>TOWNSHUB LIMITED</strong> &nbsp;&middot;&nbsp; The All-in-One Intelligent Hotel &amp; Property Management Platform</p>
+  <p style="margin-top:10px; color:rgba(255,255,255,0.65); font-size:12px;">
+    Cyprus Company &nbsp;·&nbsp; Registration No. HE 481530 &nbsp;·&nbsp; EU Compliant
+  </p>
+  <p style="margin-top:6px; color:rgba(255,255,255,0.55); font-size:12px;">
+    +357 96 186 440 &nbsp;&middot;&nbsp; admin@townshub.cy &nbsp;&middot;&nbsp; townshub.cy
+  </p>
+  <p style="margin-top:10px; font-size:10px;">&copy; 2026 TOWNSHUB Limited. All rights reserved. Pricing in EUR, billed annually. This document is confidential and intended solely for the recipient.</p>
+</div>
+
+<!-- Print Button -->
+<div class="no-print" style="position:fixed; bottom:24px; right:24px; z-index:9999;">
+  <button class="print-btn" onclick="window.print()">
+    <i data-lucide="printer"></i> Save as PDF
+  </button>
+</div>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<script>lucide.createIcons();</script>
+</body>
+</html>
