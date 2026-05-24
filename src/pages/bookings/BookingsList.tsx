@@ -79,13 +79,14 @@ export default function BookingsList() {
     {
       key: 'room',
       header: 'Room',
+      className: 'hidden sm:table-cell',
       render: (b: Booking) => (
         <span>{b.room ? `Room ${b.room.number}` : b.room_type?.name ?? '—'}</span>
       ),
     },
     {
       key: 'dates',
-      header: 'Check-in / Check-out',
+      header: 'Dates',
       render: (b: Booking) => (
         <span className="text-xs">
           {formatDate(b.check_in_date)} → {formatDate(b.check_out_date)}
@@ -105,6 +106,7 @@ export default function BookingsList() {
     {
       key: 'source',
       header: 'Source',
+      className: 'hidden md:table-cell',
       render: (b: Booking) => (
         <span className="text-xs text-subtext">{BOOKING_SOURCE_LABELS[b.source]}</span>
       ),

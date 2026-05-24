@@ -44,6 +44,7 @@ export default function GuestDirectory() {
     {
       key: 'contact',
       header: 'Contact',
+      className: 'hidden sm:table-cell',
       render: (g: Guest) => (
         <div className="text-xs space-y-0.5">
           <p>{g.email ?? '—'}</p>

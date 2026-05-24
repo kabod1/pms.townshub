@@ -196,7 +196,7 @@ export default function Dashboard() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         <div>
           <h1 className="text-xl font-bold text-body">Dashboard</h1>
           <p className="text-sm text-subtext">{formatDate(new Date())} · {tenant?.name}</p>
@@ -241,8 +241,8 @@ export default function Dashboard() {
         ) : null}
 
         {/* Today's Activity */}
-        <div className="grid gap-6 lg:grid-cols-2">
-          <div className="rounded-xl bg-white shadow-sm ring-1 ring-mid p-5">
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="rounded-xl bg-white shadow-sm ring-1 ring-mid p-3 sm:p-5">
             <h2 className="text-sm font-semibold text-body mb-4 flex items-center gap-2">
               <Users size={16} className="text-subtext" />
               Today's Arrivals & Departures
@@ -273,7 +273,7 @@ export default function Dashboard() {
             )}
           </div>
 
-          <div className="rounded-xl bg-white shadow-sm ring-1 ring-mid p-5">
+          <div className="rounded-xl bg-white shadow-sm ring-1 ring-mid p-3 sm:p-5">
             <h2 className="text-sm font-semibold text-body mb-4 flex items-center gap-2">
               <Sparkles size={16} className="text-subtext" />
               Room Status Overview
@@ -310,7 +310,7 @@ export default function Dashboard() {
         </div>
 
         {/* Recent Activity feed */}
-        <div className="rounded-xl bg-white shadow-sm ring-1 ring-mid p-5">
+        <div className="rounded-xl bg-white shadow-sm ring-1 ring-mid p-3 sm:p-5">
           <h2 className="text-sm font-semibold text-body mb-4 flex items-center gap-2">
             <Activity size={16} className="text-subtext" /> Recent Activity
             <span className="ml-auto text-xs font-normal text-subtext">Last 7 days</span>
@@ -337,7 +337,7 @@ export default function Dashboard() {
 
         {/* 7-day occupancy chart */}
         {occupancyData && (
-          <div className="rounded-xl bg-white shadow-sm ring-1 ring-mid p-5">
+          <div className="rounded-xl bg-white shadow-sm ring-1 ring-mid p-3 sm:p-5">
             <h2 className="text-sm font-semibold text-body mb-4 flex items-center gap-2">
               <TrendingUp size={16} className="text-subtext" />
               Occupancy Rate — Last 7 Days

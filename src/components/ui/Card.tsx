@@ -12,7 +12,7 @@ export function Card({ children, className, padding = true }: CardProps) {
     <div
       className={classNames(
         'rounded-xl bg-white shadow-sm ring-1 ring-mid',
-        padding && 'p-5',
+        padding && 'p-3 sm:p-5',
         className,
       )}
     >

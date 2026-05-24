@@ -73,13 +73,13 @@ function StatCard({ icon, label, value, sub, color = 'navy' }: {
     red: 'bg-red-500', indigo: 'bg-indigo-600',
   }
   return (
-    <div className="bg-white rounded-xl ring-1 ring-mid p-5 flex items-start gap-4">
+    <div className="bg-white rounded-xl ring-1 ring-mid p-3 sm:p-5 flex items-start gap-4">
       <div className={`w-10 h-10 ${bg[color] ?? 'bg-navy'} rounded-lg flex items-center justify-center shrink-0`}>
         <span className="text-white">{icon}</span>
       </div>
       <div>
         <p className="text-xs text-subtext font-medium uppercase tracking-wide">{label}</p>
-        <p className="text-2xl font-bold text-body mt-0.5">{value}</p>
+        <p className="text-xl sm:text-2xl font-bold text-body mt-0.5">{value}</p>
         {sub && <p className="text-xs text-subtext mt-0.5">{sub}</p>}
       </div>
     </div>
@@ -332,7 +332,7 @@ export default function AdminDashboard() {
             </div>
 
             {/* 7-day chart */}
-            <div className="bg-white rounded-xl ring-1 ring-mid p-5">
+            <div className="bg-white rounded-xl ring-1 ring-mid p-3 sm:p-5">
               <h2 className="text-sm font-semibold text-body mb-4 flex items-center gap-2">
                 <BarChart2 size={16} className="text-subtext" /> Page Views — Last 7 Days
               </h2>
@@ -352,7 +352,7 @@ export default function AdminDashboard() {
 
             {/* Device + Browser breakdown */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="bg-white rounded-xl ring-1 ring-mid p-5">
+              <div className="bg-white rounded-xl ring-1 ring-mid p-3 sm:p-5">
                 <h2 className="text-sm font-semibold text-body mb-4 flex items-center gap-2">
                   <Monitor size={16} className="text-subtext" /> Device Breakdown
                 </h2>
@@ -385,7 +385,7 @@ export default function AdminDashboard() {
                 )}
               </div>
 
-              <div className="bg-white rounded-xl ring-1 ring-mid p-5">
+              <div className="bg-white rounded-xl ring-1 ring-mid p-3 sm:p-5">
                 <h2 className="text-sm font-semibold text-body mb-4 flex items-center gap-2">
                   <Globe size={16} className="text-subtext" /> Browser Breakdown
                 </h2>
@@ -560,7 +560,7 @@ export default function AdminDashboard() {
         {activeTab === 'security' && (
           <div className="space-y-6">
             {/* Security score */}
-            <div className="bg-white rounded-xl ring-1 ring-mid p-6">
+            <div className="bg-white rounded-xl ring-1 ring-mid p-3 sm:p-6">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
                   <ShieldCheck size={24} className="text-green-600" />
@@ -623,7 +623,7 @@ export default function AdminDashboard() {
             </div>
 
             {/* API security */}
-            <div className="bg-white rounded-xl ring-1 ring-mid p-5">
+            <div className="bg-white rounded-xl ring-1 ring-mid p-3 sm:p-5">
               <h2 className="font-semibold text-body mb-4 flex items-center gap-2">
                 <Lock size={16} className="text-subtext" /> API Endpoint Security
               </h2>

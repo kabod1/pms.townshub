@@ -232,7 +232,7 @@ export default function ReportsDashboard() {
             </div>
 
             {/* Revenue chart */}
-            <div className="rounded-xl bg-white shadow-sm ring-1 ring-mid p-5">
+            <div className="rounded-xl bg-white shadow-sm ring-1 ring-mid p-3 sm:p-5">
               <h2 className="text-sm font-semibold text-body mb-4">Daily Revenue — Selected Period</h2>
               <div className="overflow-x-auto">
                 <div style={{ minWidth: 480 }}>
@@ -273,7 +273,7 @@ export default function ReportsDashboard() {
 
             {/* Bookings + Sources */}
             <div className="grid gap-4 lg:grid-cols-2">
-              <div className="rounded-xl bg-white shadow-sm ring-1 ring-mid p-5">
+              <div className="rounded-xl bg-white shadow-sm ring-1 ring-mid p-3 sm:p-5">
                 <h2 className="text-sm font-semibold text-body mb-4">Bookings per Day</h2>
                 <div className="overflow-x-auto">
                   <div style={{ minWidth: 320 }}>
@@ -299,7 +299,7 @@ export default function ReportsDashboard() {
                 </div>
               </div>
 
-              <div className="rounded-xl bg-white shadow-sm ring-1 ring-mid p-5">
+              <div className="rounded-xl bg-white shadow-sm ring-1 ring-mid p-3 sm:p-5">
                 <h2 className="text-sm font-semibold text-body mb-4">Booking Sources</h2>
                 {data.sourceData.length === 0 ? (
                   <p className="text-sm text-subtext py-12 text-center">No bookings in this period</p>

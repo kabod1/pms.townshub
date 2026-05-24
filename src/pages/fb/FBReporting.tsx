@@ -135,7 +135,7 @@ export default function FBReporting() {
             </div>
 
             {/* Daily revenue chart */}
-            <div className="rounded-xl bg-white shadow-sm ring-1 ring-mid p-5">
+            <div className="rounded-xl bg-white shadow-sm ring-1 ring-mid p-3 sm:p-5">
               <h2 className="text-sm font-semibold text-body mb-4">Daily F&B Revenue — Last 30 Days</h2>
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={data.dailyRevenue} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
@@ -150,7 +150,7 @@ export default function FBReporting() {
 
             <div className="grid gap-4 lg:grid-cols-2">
               {/* Order type breakdown */}
-              <div className="rounded-xl bg-white shadow-sm ring-1 ring-mid p-5">
+              <div className="rounded-xl bg-white shadow-sm ring-1 ring-mid p-3 sm:p-5">
                 <h2 className="text-sm font-semibold text-body mb-4">Revenue by Order Type</h2>
                 {data.typeData.length === 0 ? (
                   <p className="text-sm text-subtext text-center py-10">No data</p>
@@ -168,7 +168,7 @@ export default function FBReporting() {
               </div>
 
               {/* Top items */}
-              <div className="rounded-xl bg-white shadow-sm ring-1 ring-mid p-5">
+              <div className="rounded-xl bg-white shadow-sm ring-1 ring-mid p-3 sm:p-5">
                 <h2 className="text-sm font-semibold text-body mb-4">Top Menu Items (This Month)</h2>
                 {data.topItems.length === 0 ? (
                   <p className="text-sm text-subtext text-center py-10">No data</p>

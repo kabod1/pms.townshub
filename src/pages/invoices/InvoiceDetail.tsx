@@ -168,9 +168,9 @@ export default function InvoiceDetail() {
         </div>
 
         {/* Invoice document */}
-        <div ref={invoiceRef} className="rounded-xl bg-white shadow-sm ring-1 ring-mid p-8 space-y-6 print:shadow-none">
+        <div ref={invoiceRef} className="rounded-xl bg-white shadow-sm ring-1 ring-mid p-4 sm:p-8 space-y-6 print:shadow-none">
           {/* Header */}
-          <div className="flex justify-between">
+          <div className="flex flex-col sm:flex-row justify-between gap-4">
             <div>
               <img src="/logo.png" alt="Townshub" className="h-10 w-auto object-contain mb-2" />
               <p className="text-sm font-bold text-navy">{tenant?.name}</p>
@@ -178,7 +178,7 @@ export default function InvoiceDetail() {
               <p className="text-xs text-subtext">{tenant?.email}</p>
               {tenant?.vat_number && <p className="text-xs text-subtext">VAT: {tenant.vat_number}</p>}
             </div>
-            <div className="text-right">
+            <div className="sm:text-right">
               <p className="text-2xl font-bold text-navy">INVOICE</p>
               <p className="text-sm font-mono mt-1">{invoice.invoice_number}</p>
               <p className="text-xs text-subtext mt-1">Issued: {formatDate(invoice.issued_date)}</p>

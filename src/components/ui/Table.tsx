@@ -27,7 +27,7 @@ export function Table<T>({ columns, data, keyExtractor, onRowClick, emptyMessage
                 key={col.key}
                 scope="col"
                 className={classNames(
-                  'px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-subtext',
+                  'px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-semibold uppercase tracking-wider text-subtext',
                   col.className,
                 )}
               >
@@ -54,7 +54,7 @@ export function Table<T>({ columns, data, keyExtractor, onRowClick, emptyMessage
                 )}
               >
                 {columns.map((col) => (
-                  <td key={col.key} className={classNames('px-4 py-3 text-sm text-body', col.className)}>
+                  <td key={col.key} className={classNames('px-3 sm:px-4 py-2 sm:py-3 text-sm text-body', col.className)}>
                     {col.render(row)}
                   </td>
                 ))}

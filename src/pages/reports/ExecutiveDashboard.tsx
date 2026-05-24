@@ -132,7 +132,7 @@ export default function ExecutiveDashboard() {
             </div>
 
             {/* Revenue trend */}
-            <div className="rounded-xl bg-white shadow-sm ring-1 ring-mid p-5">
+            <div className="rounded-xl bg-white shadow-sm ring-1 ring-mid p-3 sm:p-5">
               <h2 className="text-sm font-semibold text-body mb-4">Revenue Trend — Last 6 Months</h2>
               <ResponsiveContainer width="100%" height={240}>
                 <BarChart data={data.monthlyTrend} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
@@ -147,7 +147,7 @@ export default function ExecutiveDashboard() {
 
             {/* Booking volume + Health indicators */}
             <div className="grid gap-4 lg:grid-cols-2">
-              <div className="rounded-xl bg-white shadow-sm ring-1 ring-mid p-5">
+              <div className="rounded-xl bg-white shadow-sm ring-1 ring-mid p-3 sm:p-5">
                 <h2 className="text-sm font-semibold text-body mb-4">Bookings per Month — Last 6 Months</h2>
                 <ResponsiveContainer width="100%" height={200}>
                   <BarChart data={data.monthlyTrend} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
@@ -160,7 +160,7 @@ export default function ExecutiveDashboard() {
                 </ResponsiveContainer>
               </div>
 
-              <div className="rounded-xl bg-white shadow-sm ring-1 ring-mid p-5">
+              <div className="rounded-xl bg-white shadow-sm ring-1 ring-mid p-3 sm:p-5">
                 <h2 className="text-sm font-semibold text-body mb-4">Performance Health</h2>
                 <div className="space-y-3">
                   {[

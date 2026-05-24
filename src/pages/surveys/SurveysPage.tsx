@@ -148,7 +148,7 @@ export default function SurveysPage() {
 
             {/* NPS breakdown */}
             {withNPS.length > 0 && (
-              <div className="rounded-xl bg-white shadow-sm ring-1 ring-mid p-5">
+              <div className="rounded-xl bg-white shadow-sm ring-1 ring-mid p-3 sm:p-5">
                 <h2 className="text-sm font-semibold text-body mb-3">NPS Breakdown</h2>
                 <div className="flex gap-4">
                   <div className="text-center">
