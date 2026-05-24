@@ -232,5 +232,22 @@ export default async function handler(req: any, res: any) {
     pmMonthRevenue:  rentRows.filter((r) => r.due_date >= thisMonthStart && r.status === 'paid').reduce((s, r) => s + Number(r.amount ?? 0), 0),
   }
 
-  return res.json({ platform, tenants: tenantStats, analytics })
+  // ── Recent user registrations (auth.users via service role) ─────────────
+  let recentSignups: { id: string; email: string; created_at: string; last_sign_in_at: string | null }[] = []
+  try {
+    const { data: authUsers } = await db.auth.admin.listUsers({ perPage: 100 })
+    recentSignups = (authUsers?.users ?? [])
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 50)
+      .map((u) => ({
+        id: u.id,
+        email: u.email ?? '',
+        created_at: u.created_at,
+        last_sign_in_at: u.last_sign_in_at ?? null,
+      }))
+  } catch {
+    recentSignups = []
+  }
+
+  return res.json({ platform, tenants: tenantStats, analytics, recentSignups })
 }

@@ -99,7 +99,7 @@ export function AIAssistantWidget() {
     <>
       {/* Chat panel */}
       {open && (
-        <div className="fixed bottom-20 right-4 z-50 w-80 sm:w-96 flex flex-col rounded-2xl bg-white shadow-2xl ring-1 ring-black/10 overflow-hidden"
+        <div className="fixed bottom-20 left-4 sm:left-auto sm:right-4 z-50 w-80 sm:w-96 flex flex-col rounded-2xl bg-white shadow-2xl ring-1 ring-black/10 overflow-hidden"
           style={{ height: '480px' }}>
           {/* Header */}
           <div className="flex items-center gap-2.5 px-4 py-3 bg-navy">
@@ -197,10 +197,10 @@ export function AIAssistantWidget() {
         </div>
       )}
 
-      {/* Floating trigger button */}
+      {/* Floating trigger button — bottom-left on mobile, bottom-right on sm+ */}
       <button
         onClick={() => { setOpen((v) => !v); setPulse(false) }}
-        className="fixed bottom-4 right-4 z-50 flex items-center gap-2 bg-navy hover:bg-navy/90 text-white rounded-full shadow-lg hover:shadow-xl transition-all"
+        className="fixed bottom-4 left-4 sm:left-auto sm:right-4 z-50 flex items-center gap-2 bg-navy hover:bg-navy/90 text-white rounded-full shadow-lg hover:shadow-xl transition-all"
         style={{ padding: open ? '10px' : '10px 16px 10px 12px' }}
       >
         {open ? (

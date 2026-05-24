@@ -48,10 +48,18 @@ interface AnalyticsData {
   cityBreakdown: { city: string; count: number; country: string; flag: string }[]
 }
 
+interface SignupUser {
+  id: string
+  email: string
+  created_at: string
+  last_sign_in_at: string | null
+}
+
 interface AdminData {
   platform: PlatformStats
   tenants: TenantStat[]
   analytics: AnalyticsData
+  recentSignups: SignupUser[]
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -116,7 +124,7 @@ export default function AdminDashboard() {
   const [error, setError] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [search, setSearch] = useState('')
-  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'security' | 'tenants'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'security' | 'tenants' | 'users'>('overview')
 
   const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(user?.email ?? '')
 
@@ -166,13 +174,14 @@ export default function AdminDashboard() {
   if (error) return <DashboardLayout><p className="text-red-600 text-sm p-6">{error}</p></DashboardLayout>
   if (!data) return null
 
-  const { platform, tenants, analytics } = data
+  const { platform, tenants, analytics, recentSignups = [] } = data
   const filtered = tenants.filter((t) =>
     !search || t.name.toLowerCase().includes(search.toLowerCase()) || t.city?.toLowerCase().includes(search.toLowerCase())
   )
 
   const TABS = [
     { id: 'overview',  label: 'Overview',   icon: <BarChart2 size={14} /> },
+    { id: 'users',     label: `Sign-ups (${recentSignups.length})`, icon: <Users size={14} /> },
     { id: 'analytics', label: 'Visitor Analytics', icon: <Eye size={14} /> },
     { id: 'security',  label: 'Security',   icon: <ShieldCheck size={14} /> },
     { id: 'tenants',   label: 'Tenants',    icon: <Building2 size={14} /> },
@@ -680,6 +689,88 @@ export default function AdminDashboard() {
                     ))}
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── USERS / SIGN-UPS TAB ── */}
+        {activeTab === 'users' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-xl shadow-sm ring-1 ring-mid overflow-hidden">
+              <div className="px-5 py-4 border-b border-mid flex items-center justify-between">
+                <div>
+                  <h2 className="font-semibold text-body">All Registered Users ({recentSignups.length})</h2>
+                  <p className="text-xs text-subtext mt-0.5">All accounts in Supabase Auth — sorted by most recent</p>
+                </div>
+                <span className="text-xs text-subtext">{recentSignups.filter((u) => {
+                  const d = new Date(u.created_at)
+                  const now = new Date()
+                  return now.getTime() - d.getTime() < 7 * 24 * 60 * 60 * 1000
+                }).length} new this week</span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-mid bg-light text-left">
+                      <th className="px-5 py-3 font-medium text-subtext">#</th>
+                      <th className="px-5 py-3 font-medium text-subtext">Email</th>
+                      <th className="px-5 py-3 font-medium text-subtext">Tenant</th>
+                      <th className="px-5 py-3 font-medium text-subtext">Registered</th>
+                      <th className="px-5 py-3 font-medium text-subtext">Last Sign-in</th>
+                      <th className="px-5 py-3 font-medium text-subtext">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-mid">
+                    {recentSignups.map((u, i) => {
+                      const matchedTenant = tenants.find((t) =>
+                        t.slug && u.email.toLowerCase().includes(t.slug.toLowerCase().replace(/-/g, ''))
+                      )
+                      const isNew = new Date().getTime() - new Date(u.created_at).getTime() < 48 * 60 * 60 * 1000
+                      const neverSignedIn = !u.last_sign_in_at
+                      return (
+                        <tr key={u.id} className="hover:bg-light/50">
+                          <td className="px-5 py-3 text-subtext text-xs">{i + 1}</td>
+                          <td className="px-5 py-3">
+                            <span className="font-medium text-body">{u.email}</span>
+                            {isNew && (
+                              <span className="ml-2 inline-flex items-center rounded-full bg-green-100 text-green-700 text-xs px-2 py-0.5 font-medium">New</span>
+                            )}
+                          </td>
+                          <td className="px-5 py-3 text-xs text-subtext">
+                            {matchedTenant ? (
+                              <span className="font-medium text-navy">{matchedTenant.name}</span>
+                            ) : (
+                              <span className="text-subtext">—</span>
+                            )}
+                          </td>
+                          <td className="px-5 py-3 text-xs text-subtext whitespace-nowrap">
+                            {formatDate(u.created_at)}
+                          </td>
+                          <td className="px-5 py-3 text-xs text-subtext whitespace-nowrap">
+                            {u.last_sign_in_at ? formatDate(u.last_sign_in_at) : (
+                              <span className="text-amber-500">Never</span>
+                            )}
+                          </td>
+                          <td className="px-5 py-3">
+                            <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                              neverSignedIn ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'
+                            }`}>
+                              {neverSignedIn ? 'Pending' : 'Active'}
+                            </span>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                    {recentSignups.length === 0 && (
+                      <tr>
+                        <td colSpan={6} className="px-5 py-10 text-center text-subtext text-sm">
+                          No registered users found.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
