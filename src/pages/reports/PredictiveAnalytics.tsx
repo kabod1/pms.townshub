@@ -234,8 +234,8 @@ function usePredictiveData() {
               return s + Math.max(0, nights)
             }, 0) / confirmedB.length
           : 2
-      const lastRev = monthlyHistory.at(-1)?.revenue ?? 0
-      const prevRev = monthlyHistory.at(-2)?.revenue ?? 0
+      const lastRev = monthlyHistory[monthlyHistory.length - 1]?.revenue ?? 0
+      const prevRev = monthlyHistory[monthlyHistory.length - 2]?.revenue ?? 0
       const revGrowth = prevRev > 0 ? ((lastRev - prevRev) / prevRev) * 100 : 0
 
       type Rec = {
@@ -350,7 +350,9 @@ const PRIORITY_STYLES = {
   low: 'bg-blue-100 text-blue-700',
 }
 
-function RiskScore({ alerts }: { alerts: ReturnType<typeof usePredictiveData>['data'] extends infer D ? D extends object ? D['fraudAlerts'] : never : never }) {
+type FraudAlert = { severity: 'high' | 'medium' | 'low'; type: string; detail: string; count: number }
+
+function RiskScore({ alerts }: { alerts: FraudAlert[] }) {
   const high = alerts.filter((a) => a.severity === 'high').length
   const med = alerts.filter((a) => a.severity === 'medium').length
   const score = Math.min(100, high * 35 + med * 15)
@@ -720,8 +722,10 @@ export default function PredictiveAnalytics() {
                   <span className="ml-auto text-xs text-subtext">Ranked by priority &amp; estimated impact</span>
                 </div>
 
-                {data.recs.map((rec, i) => (
-                  <Card key={i} className="border-l-4" style={{ borderLeftColor: rec.priority === 'high' ? '#ef4444' : rec.priority === 'medium' ? '#f59e0b' : '#3b82f6' } as React.CSSProperties}>
+                {data.recs.map((rec, i) => {
+                  const borderColor = rec.priority === 'high' ? '#ef4444' : rec.priority === 'medium' ? '#f59e0b' : '#3b82f6'
+                  return (
+                  <div key={i} className="rounded-xl bg-white shadow-sm ring-1 ring-mid p-5 border-l-4" style={{ borderLeftColor: borderColor }}>
                     <div className="flex items-start justify-between gap-4 flex-wrap">
                       <div className="flex-1 space-y-1.5">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -744,8 +748,9 @@ export default function PredictiveAnalytics() {
                         {rec.action} <ArrowRight size={12} />
                       </Link>
                     </div>
-                  </Card>
-                ))}
+                  </div>
+                  )
+                })}
 
                 <Card className="bg-gradient-to-br from-navy/5 to-gold/5">
                   <div className="flex items-start gap-3">
