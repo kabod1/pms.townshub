@@ -99,8 +99,8 @@ export function AIAssistantWidget() {
     <>
       {/* Chat panel */}
       {open && (
-        <div className="fixed bottom-20 left-4 sm:left-auto sm:right-4 z-50 w-80 sm:w-96 flex flex-col rounded-2xl bg-white shadow-2xl ring-1 ring-black/10 overflow-hidden"
-          style={{ height: '480px' }}>
+        <div className="fixed bottom-20 left-3 right-3 sm:left-auto sm:right-4 sm:w-96 z-50 flex flex-col rounded-2xl bg-white shadow-2xl ring-1 ring-black/10 overflow-hidden"
+          style={{ height: '72dvh', maxHeight: '480px' }}>
           {/* Header */}
           <div className="flex items-center gap-2.5 px-4 py-3 bg-navy">
             <div className="w-8 h-8 bg-gold rounded-lg flex items-center justify-center shrink-0">
@@ -197,17 +197,20 @@ export function AIAssistantWidget() {
         </div>
       )}
 
-      {/* Floating trigger button — bottom-left on mobile, bottom-right on sm+ */}
+      {/* Floating trigger — icon-only circle on mobile, full pill on desktop */}
       <button
         onClick={() => { setOpen((v) => !v); setPulse(false) }}
-        className="fixed bottom-4 left-4 sm:left-auto sm:right-4 z-50 flex items-center gap-2 bg-navy hover:bg-navy/90 text-white rounded-full shadow-lg hover:shadow-xl transition-all"
-        style={{ padding: open ? '10px' : '10px 16px 10px 12px' }}
+        aria-label="AI Assistant"
+        className="fixed bottom-5 left-4 sm:left-auto sm:bottom-4 sm:right-4 z-50 bg-navy hover:bg-navy/90 text-white shadow-lg hover:shadow-xl transition-all
+          w-12 h-12 rounded-full flex items-center justify-center
+          sm:w-auto sm:h-auto sm:rounded-full sm:flex-row sm:gap-2"
+        style={{ padding: undefined }}
       >
         {open ? (
           <X size={20} />
         ) : (
           <>
-            <div className="relative">
+            <div className="relative flex items-center justify-center">
               <Bot size={20} />
               {pulse && (
                 <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-gold rounded-full">
@@ -215,8 +218,8 @@ export function AIAssistantWidget() {
                 </span>
               )}
             </div>
-            <span className="text-sm font-medium">AI Assistant</span>
-            <Sparkles size={14} className="text-gold" />
+            <span className="hidden sm:inline text-sm font-medium pl-1">AI Assistant</span>
+            <Sparkles size={14} className="hidden sm:inline text-gold" />
           </>
         )}
       </button>
