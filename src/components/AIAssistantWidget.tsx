@@ -67,7 +67,7 @@ export function AIAssistantWidget() {
     setLoading(true)
 
     try {
-      const res = await fetch('/api/assist', {
+      const res = await fetch('/api/ai?action=assist', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: updated }),

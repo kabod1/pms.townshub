@@ -56,7 +56,7 @@ export default function GuestChat() {
     setLoading(true)
 
     try {
-      const res = await fetch('/api/chat', {
+      const res = await fetch('/api/ai?action=chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

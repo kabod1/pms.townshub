@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
+import { getCookieConsent } from '@/components/CookieBanner'
 
 const PUBLIC_PATH_PREFIXES = [
   '/auth/', '/survey/', '/menu/', '/guest-chat/', '/pre-checkin/',
@@ -38,6 +39,10 @@ export function usePageTracking() {
   useEffect(() => {
     const isPublic = PUBLIC_PATH_PREFIXES.some((p) => location.pathname.startsWith(p))
     if (isPublic) return
+
+    // Respect cookie consent — only track if user has accepted
+    const consent = getCookieConsent()
+    if (!consent) return
 
     // Fire-and-forget — POST to /api/track which reads Vercel geolocation headers server-side
     async function track() {

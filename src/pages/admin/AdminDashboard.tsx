@@ -639,12 +639,12 @@ export default function AdminDashboard() {
                   </thead>
                   <tbody className="divide-y divide-mid text-xs">
                     {[
-                      { ep: '/api/admin',          auth: 'Super Admin only', rate: '30 req/min', san: true },
-                      { ep: '/api/push/subscribe', auth: 'Bearer JWT',       rate: '60 req/min', san: true },
-                      { ep: '/api/push/send',      auth: 'API Secret or JWT',rate: '60 req/min', san: true },
-                      { ep: '/api/send-email',     auth: 'Bearer JWT',       rate: '60 req/min', san: true },
-                      { ep: '/api/chat',           auth: 'Tenant slug',      rate: '60 req/min', san: true },
-                      { ep: '/api/assist',         auth: 'Bearer JWT',       rate: '60 req/min', san: false },
+                      { ep: '/api/admin',          auth: 'Super Admin only',  rate: '30 req/min', san: true },
+                      { ep: '/api/push',           auth: 'Bearer JWT',        rate: '60 req/min', san: true },
+                      { ep: '/api/send-email',     auth: 'Bearer JWT',        rate: '60 req/min', san: true },
+                      { ep: '/api/ai',             auth: 'Tenant slug / JWT', rate: '60 req/min', san: true },
+                      { ep: '/api/gdpr',           auth: 'Bearer JWT',        rate: '20 req/min', san: true },
+                      { ep: '/api/siteminder',     auth: 'Bearer JWT',        rate: '30 req/min', san: true },
                     ].map((row) => (
                       <tr key={row.ep} className="hover:bg-light/50">
                         <td className="px-4 py-2.5 font-mono text-navy">{row.ep}</td>
@@ -680,7 +680,7 @@ export default function AdminDashboard() {
                       { label: 'SecurityHeaders.com', grade: 'A+' },
                       { label: 'HSTS Preloaded',       grade: '✓'  },
                       { label: 'SOC2 Aligned',          grade: '✓'  },
-                      { label: 'GDPR Ready',            grade: '✓'  },
+                      { label: 'GDPR Compliant',        grade: '✓'  },
                     ].map((b) => (
                       <div key={b.label} className="bg-white/10 rounded-lg px-3 py-2 text-center">
                         <p className="text-gold font-bold text-lg">{b.grade}</p>

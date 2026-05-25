@@ -5,6 +5,7 @@ import { Toaster } from 'react-hot-toast'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { useAuth } from '@/hooks/useAuth'
+import { CookieBanner } from '@/components/CookieBanner'
 
 // Auth pages
 const Login = lazy(() => import('@/pages/auth/Login'))
@@ -117,6 +118,7 @@ const GuestChat = lazy(() => import('@/pages/GuestChat'))
 // Public
 const PreCheckin = lazy(() => import('@/pages/PreCheckin'))
 const PublicMenu = lazy(() => import('@/pages/PublicMenu'))
+const PrivacyPolicy = lazy(() => import('@/pages/legal/PrivacyPolicy'))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -248,6 +250,7 @@ function AppRoutes() {
         <Route path="/menu/:slug" element={<PublicMenu />} />
         <Route path="/menu/:slug/:tableToken" element={<PublicMenu />} />
         <Route path="/survey/:ref" element={<PublicSurvey />} />
+        <Route path="/privacy" element={<PrivacyPolicy />} />
 
         {/* Catch-all */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
@@ -262,6 +265,7 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <AppRoutes />
+        <CookieBanner />
         <Toaster
           position="top-right"
           toastOptions={{

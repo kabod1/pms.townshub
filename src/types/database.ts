@@ -102,6 +102,8 @@ export interface Guest {
   total_stays: number
   total_spent: number
   tags: string[]
+  marketing_consent: boolean
+  marketing_consent_date: string | null
   created_at: string
   updated_at: string
 }
