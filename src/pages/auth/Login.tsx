@@ -6,8 +6,7 @@ import { z } from 'zod'
 import { AuthLayout } from '@/layouts/AuthLayout'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
-import { signIn } from '@/lib/auth'
-import { getCurrentUser } from '@/lib/auth'
+import { signIn, getCurrentUser } from '@/lib/auth'
 import { useAuthStore } from '@/store/authStore'
 import toast from 'react-hot-toast'
 
@@ -30,30 +29,20 @@ export default function Login() {
     setLoading(true)
     try {
       await signIn(data.email, data.password)
-
-      let result = null
-      let lastErr: any = null
-      try {
-        result = await getCurrentUser()
-      } catch (e: any) {
-        lastErr = e
-      }
-
-      if (result) {
-        setAuth(result.user, result.tenant)
-        navigate('/dashboard', { replace: true })
+      const result = await getCurrentUser()
+      setAuth(result.user, result.tenant)
+      navigate('/dashboard', { replace: true })
+    } catch (err: any) {
+      const step = err?.step
+      if (step === 'no_profile') {
+        toast.error('Your user profile was not found. Please contact support — your account may need to be re-initialised.')
+      } else if (step === 'no_tenant') {
+        toast.error('Your hotel/property account was not found. Please contact support.')
+      } else if (step === 'timeout') {
+        toast.error('Profile load timed out. Please try again.')
       } else {
-        const step = lastErr?.step
-        if (step === 'no_profile') {
-          toast.error('Your user profile was not found. Please contact support — your account may need to be re-initialised.')
-        } else if (step === 'no_tenant') {
-          toast.error('Your hotel/property account was not found. Please contact support.')
-        } else {
-          toast.error('Sign in succeeded but your profile could not be loaded. Please try again or contact support.')
-        }
+        toast.error(err instanceof Error ? err.message : 'Sign in failed')
       }
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Sign in failed')
     } finally {
       setLoading(false)
     }

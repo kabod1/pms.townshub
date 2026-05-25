@@ -9,9 +9,34 @@ import { Input } from '@/components/ui/Input'
 import { registerHotel, getCurrentUser } from '@/lib/auth'
 import { useAuthStore } from '@/store/authStore'
 import toast from 'react-hot-toast'
+import { Hotel, Home, Building2 } from 'lucide-react'
+import { classNames } from '@/lib/utils'
+
+type Mode = 'hotel' | 'property' | 'both'
+
+const MODES: { value: Mode; label: string; description: string; icon: React.ReactNode }[] = [
+  {
+    value: 'hotel',
+    label: 'Hotel / Resort',
+    description: 'Manage rooms, bookings, guests & F&B',
+    icon: <Hotel size={20} />,
+  },
+  {
+    value: 'property',
+    label: 'Property Management',
+    description: 'Manage rental units, leases & owners',
+    icon: <Home size={20} />,
+  },
+  {
+    value: 'both',
+    label: 'Hotel + Property',
+    description: 'Full access to both platforms',
+    icon: <Building2 size={20} />,
+  },
+]
 
 const schema = z.object({
-  hotelName:       z.string().min(2, 'Hotel name is required'),
+  hotelName:       z.string().min(2, 'Business name is required'),
   fullName:        z.string().min(2, 'Your name is required'),
   email:           z.string().email('Invalid email address'),
   password:        z.string().min(8, 'Password must be at least 8 characters'),
@@ -28,6 +53,7 @@ export default function Register() {
   const navigate = useNavigate()
   const { setAuth } = useAuthStore()
   const [loading, setLoading] = useState(false)
+  const [mode, setMode] = useState<Mode>('hotel')
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -36,27 +62,15 @@ export default function Register() {
   async function onSubmit(data: FormData) {
     setLoading(true)
     try {
-      await registerHotel(data)
+      await registerHotel({ ...data, mode })
 
-      // Give Supabase a moment to propagate the session after the RPC.
-      // The onAuthStateChange SIGNED_IN event fires during signUp, before the
-      // register_hotel RPC creates the users row — so we fetch here explicitly.
-      await new Promise((r) => setTimeout(r, 500))
-
-      let result = await getCurrentUser()
-
-      // Single retry if the profile row isn't visible yet (e.g., replication lag)
-      if (!result) {
-        await new Promise((r) => setTimeout(r, 1500))
-        result = await getCurrentUser()
-      }
-
-      if (result) {
+      try {
+        const result = await getCurrentUser()
         setAuth(result.user, result.tenant)
         toast.success('Welcome to TownsHub PMS! Your 30-day trial has started.')
         navigate('/dashboard', { replace: true })
-      } else {
-        // Profile created but couldn't be fetched — redirect to login so they can sign in normally
+      } catch {
+        // Profile created but not yet visible — send to login
         toast.success('Account created! Please sign in to continue.')
         navigate('/auth/login', { replace: true })
       }
@@ -67,16 +81,53 @@ export default function Register() {
     }
   }
 
+  const namePlaceholder = mode === 'hotel' ? 'Grand Cyprus Hotel' : mode === 'property' ? 'Sunrise Properties Ltd' : 'Townshub Group'
+  const nameLabel = mode === 'hotel' ? 'Hotel / Resort Name' : mode === 'property' ? 'Company / Property Name' : 'Business Name'
+
   return (
     <AuthLayout>
       <div>
-        <h2 className="text-2xl font-bold text-body">Register your hotel</h2>
+        <h2 className="text-2xl font-bold text-body">Create your account</h2>
         <p className="mt-1 text-sm text-subtext">30-day free trial — no credit card required</p>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4">
+        {/* Mode selector */}
+        <div className="mt-5 space-y-2">
+          <p className="text-sm font-medium text-body">What are you managing?</p>
+          <div className="grid gap-2">
+            {MODES.map((m) => (
+              <button
+                key={m.value}
+                type="button"
+                onClick={() => setMode(m.value)}
+                className={classNames(
+                  'flex items-center gap-3 rounded-xl border-2 px-4 py-3 text-left transition-colors',
+                  mode === m.value
+                    ? 'border-gold bg-gold/5'
+                    : 'border-mid bg-white hover:border-blue/40',
+                )}
+              >
+                <span className={classNames('shrink-0', mode === m.value ? 'text-gold' : 'text-subtext')}>
+                  {m.icon}
+                </span>
+                <div>
+                  <p className={classNames('text-sm font-semibold', mode === m.value ? 'text-gold' : 'text-body')}>
+                    {m.label}
+                  </p>
+                  <p className="text-xs text-subtext">{m.description}</p>
+                </div>
+                <span className={classNames(
+                  'ml-auto h-4 w-4 shrink-0 rounded-full border-2 transition-colors',
+                  mode === m.value ? 'border-gold bg-gold' : 'border-mid',
+                )} />
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit(onSubmit)} className="mt-5 space-y-4">
           <Input
-            label="Hotel Name"
-            placeholder="Grand Cyprus Hotel"
+            label={nameLabel}
+            placeholder={namePlaceholder}
             error={errors.hotelName?.message}
             {...register('hotelName')}
           />

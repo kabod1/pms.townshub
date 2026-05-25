@@ -9,7 +9,8 @@ CREATE OR REPLACE FUNCTION register_hotel(
   p_full_name  TEXT,
   p_phone      TEXT    DEFAULT NULL,
   p_city       TEXT    DEFAULT NULL,
-  p_country    TEXT    DEFAULT 'Cyprus'
+  p_country    TEXT    DEFAULT 'Cyprus',
+  p_mode       TEXT    DEFAULT 'hotel'
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -35,8 +36,8 @@ BEGIN
     p_slug := p_slug || '-' || substr(md5(random()::text), 1, 4);
   END LOOP;
 
-  INSERT INTO tenants (name, slug, email, phone, city, country)
-  VALUES (p_hotel_name, p_slug, p_email, p_phone, p_city, p_country)
+  INSERT INTO tenants (name, slug, email, phone, city, country, mode)
+  VALUES (p_hotel_name, p_slug, p_email, p_phone, p_city, p_country, p_mode)
   RETURNING id INTO v_tenant_id;
 
   INSERT INTO users (id, tenant_id, email, full_name, role)
@@ -48,3 +49,33 @@ BEGIN
   );
 END;
 $$;
+
+-- ─── Fix admin@townshub.cy login ─────────────────────────────────────────────
+-- If admin@townshub.cy cannot log in, run the block below in SQL Editor.
+-- It creates the required tenants + users rows for the super-admin account.
+
+/*
+DO $$
+DECLARE
+  v_user_id   UUID;
+  v_tenant_id UUID;
+BEGIN
+  SELECT id INTO v_user_id FROM auth.users WHERE email = 'admin@townshub.cy';
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'admin@townshub.cy not found in auth.users';
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM tenants WHERE slug = 'townshub-platform') THEN
+    INSERT INTO tenants (name, slug, email, mode, subscription_status, trial_ends_at, currency, timezone)
+    VALUES ('TownsHub Platform', 'townshub-platform', 'admin@townshub.cy', 'both', 'active', '2099-12-31', 'EUR', 'Europe/Nicosia')
+    RETURNING id INTO v_tenant_id;
+  ELSE
+    SELECT id INTO v_tenant_id FROM tenants WHERE slug = 'townshub-platform';
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM users WHERE id = v_user_id) THEN
+    INSERT INTO users (id, tenant_id, email, full_name, role)
+    VALUES (v_user_id, v_tenant_id, 'admin@townshub.cy', 'Platform Admin', 'admin');
+  END IF;
+END $$;
+*/

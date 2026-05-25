@@ -14,26 +14,31 @@ export async function signOut() {
 
 export type AuthError = 'no_session' | 'no_profile' | 'no_tenant' | 'timeout' | 'unknown'
 
-export async function getCurrentUser(): Promise<{ user: User; tenant: Tenant } | null> {
+export async function getCurrentUser(): Promise<{ user: User; tenant: Tenant }> {
   // Retry up to 3 times to handle Supabase replication lag after sign-up
+  let lastErr: unknown = new Error('Could not load your profile. Please try again.')
   for (let attempt = 0; attempt < 3; attempt++) {
     if (attempt > 0) await new Promise((r) => setTimeout(r, 1200 * attempt))
     try {
       const result = await Promise.race([
         _fetchCurrentUser(),
-        new Promise<null>((resolve) => setTimeout(() => resolve(null), 10_000)),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(Object.assign(new Error('Profile load timed out'), { step: 'timeout' })), 10_000)
+        ),
       ])
-      if (result) return result
-    } catch {
-      // continue to next attempt
+      return result
+    } catch (e) {
+      lastErr = e
     }
   }
-  return null
+  throw lastErr
 }
 
-async function _fetchCurrentUser(): Promise<{ user: User; tenant: Tenant } | null> {
+async function _fetchCurrentUser(): Promise<{ user: User; tenant: Tenant }> {
   const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
-  if (authError || !authUser) return null
+  if (authError || !authUser) {
+    throw Object.assign(new Error('No authenticated session'), { step: 'no_session' })
+  }
 
   const { data: profile, error: profileError } = await supabase
     .from('users')
@@ -84,6 +89,7 @@ export async function registerHotel(params: {
   phone?: string
   city?: string
   country?: string
+  mode?: 'hotel' | 'property' | 'both'
 }) {
   const slug = params.hotelName
     .toLowerCase()
@@ -112,6 +118,7 @@ export async function registerHotel(params: {
       p_phone:      params.phone ?? null,
       p_city:       params.city ?? null,
       p_country:    params.country ?? 'Cyprus',
+      p_mode:       params.mode ?? 'hotel',
     })
 
     if (rpcError) throw new Error(rpcError.message)
