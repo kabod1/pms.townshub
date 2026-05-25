@@ -41,13 +41,18 @@ async function handleExport(req: any, res: any, db: ReturnType<typeof getDb>) {
   const { guestId } = req.body
   if (!guestId) return res.status(400).json({ error: 'guestId required' })
 
-  const [guestRes, bookingsRes, invoicesRes] = await Promise.all([
+  const [guestRes, bookingsRes] = await Promise.all([
     db.from('guests').select('*').eq('id', guestId).eq('tenant_id', tenantId).single(),
     db.from('bookings').select('id, booking_reference, check_in_date, check_out_date, status, room_rate, total_amount, source, adults, children, special_requests, created_at').eq('guest_id', guestId).eq('tenant_id', tenantId),
-    db.from('invoices').select('id, invoice_number, issue_date, due_date, status, subtotal, tax_amount, total_amount, notes, created_at').eq('guest_id', guestId).eq('tenant_id', tenantId),
   ])
 
   if (!guestRes.data) return res.status(404).json({ error: 'Guest not found' })
+
+  // Fetch invoices via booking_id (invoices link to bookings, not guests directly)
+  const bookingIds = (bookingsRes.data ?? []).map((b: any) => b.id)
+  const invoicesRes = bookingIds.length > 0
+    ? await db.from('invoices').select('id, invoice_number, issued_date, status, subtotal, tax_amount, total_amount, notes, created_at').in('booking_id', bookingIds)
+    : { data: [] }
 
   const exportData = {
     exported_at: new Date().toISOString(),
