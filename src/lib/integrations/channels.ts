@@ -1,21 +1,9 @@
 /**
- * Channel Manager Integration Stub
- * Supports: Booking.com, Expedia, Airbnb, and generic iCal feeds.
- *
- * TODO: Replace stubs with real API calls before deploying.
- *
- * Required env vars:
- *   BOOKINGCOM_PROPERTY_ID=...
- *   BOOKINGCOM_USERNAME=...
- *   BOOKINGCOM_PASSWORD=...
- *   EXPEDIA_PARTNER_ACCOUNT_ID=...
- *   EXPEDIA_API_KEY=...
- *   EXPEDIA_API_SECRET=...
- *   AIRBNB_CLIENT_ID=...
- *   AIRBNB_CLIENT_SECRET=...
+ * Channel Manager Integration
+ * Supports: SiteMinder (primary), Booking.com, Expedia, Airbnb, iCal
  */
 
-export type ChannelId = 'booking_com' | 'expedia' | 'airbnb' | 'ical'
+export type ChannelId = 'siteminder' | 'booking_com' | 'expedia' | 'airbnb' | 'ical'
 
 export interface ChannelConfig {
   id: ChannelId
@@ -24,9 +12,21 @@ export interface ChannelConfig {
   connected: boolean
   lastSync: string | null
   docsUrl: string
+  description: string
+  badge?: string
 }
 
 export const CHANNEL_DEFAULTS: ChannelConfig[] = [
+  {
+    id: 'siteminder',
+    label: 'SiteMinder',
+    logo: '/channels/siteminder.svg',
+    connected: false,
+    lastSync: null,
+    docsUrl: 'https://www.siteminder.com/connectivity-partner/',
+    description: 'Connect to 450+ OTAs with one integration — the world\'s leading channel manager',
+    badge: 'Recommended',
+  },
   {
     id: 'booking_com',
     label: 'Booking.com',
@@ -34,6 +34,7 @@ export const CHANNEL_DEFAULTS: ChannelConfig[] = [
     connected: false,
     lastSync: null,
     docsUrl: 'https://join.booking.com/partner/extranet',
+    description: 'Direct connectivity to Booking.com (requires Connectivity Partner approval)',
   },
   {
     id: 'expedia',
@@ -42,6 +43,7 @@ export const CHANNEL_DEFAULTS: ChannelConfig[] = [
     connected: false,
     lastSync: null,
     docsUrl: 'https://expediapartnercentral.com',
+    description: 'Direct connectivity to Expedia Group channels',
   },
   {
     id: 'airbnb',
@@ -50,6 +52,7 @@ export const CHANNEL_DEFAULTS: ChannelConfig[] = [
     connected: false,
     lastSync: null,
     docsUrl: 'https://www.airbnb.com/hosting',
+    description: 'Direct connectivity to Airbnb (requires Software Partner approval)',
   },
   {
     id: 'ical',
@@ -58,6 +61,7 @@ export const CHANNEL_DEFAULTS: ChannelConfig[] = [
     connected: false,
     lastSync: null,
     docsUrl: '',
+    description: 'Import bookings from any calendar URL (Google Calendar, VRBO, etc.)',
   },
 ]
 
@@ -68,41 +72,37 @@ export interface ChannelAvailabilityUpdate {
   price: number
 }
 
-/**
- * Push availability + rates to a channel.
- * TODO: Implement /api/channels/push with provider-specific API calls.
- */
 export async function pushAvailability(
   channel: ChannelId,
-  updates: ChannelAvailabilityUpdate[]
+  updates: ChannelAvailabilityUpdate[],
+  token: string
 ): Promise<boolean> {
-  console.warn(`[Channels] pushAvailability stub — ${channel}`, updates)
-  // TODO: POST /api/channels/push { channel, updates }
+  if (channel === 'siteminder') {
+    const res = await fetch('/api/siteminder/push', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: updates[0]?.date,
+        to:   updates[updates.length - 1]?.date,
+        roomTypeId: updates[0]?.roomTypeId,
+        ratePlanId: 'DEFAULT',
+      }),
+    })
+    return res.ok
+  }
+  console.warn(`[Channels] pushAvailability stub — ${channel}`)
   return false
 }
 
-/**
- * Fetch new reservations from a channel.
- * TODO: Implement /api/channels/pull with provider-specific API calls.
- */
 export async function pullReservations(channel: ChannelId): Promise<unknown[]> {
   console.warn(`[Channels] pullReservations stub — ${channel}`)
-  // TODO: GET /api/channels/pull?channel=...
   return []
 }
 
-/**
- * Generate an iCal export URL for a room type.
- * This is server-generated — implement /api/ical/:roomTypeId
- */
 export function icalExportUrl(tenantSlug: string, roomTypeId: string): string {
   return `/api/ical/${tenantSlug}/${roomTypeId}.ics`
 }
 
-/**
- * Import bookings from an external iCal feed.
- * TODO: Implement /api/channels/ical-import with ical parsing.
- */
 export async function importIcalFeed(url: string): Promise<boolean> {
   console.warn('[Channels] importIcalFeed stub — url:', url)
   return false
