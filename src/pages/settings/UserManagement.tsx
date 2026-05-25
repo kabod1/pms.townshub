@@ -35,6 +35,7 @@ const SETTINGS_NAV = [
   { to: '/settings/packages',   label: 'Packages' },
   { to: '/settings/promotions', label: 'Promotions' },
   { to: '/settings/vouchers',   label: 'Vouchers' },
+  { to: '/settings/channels',   label: 'Channels' },
 ]
 
 interface InviteForm { email: string; full_name: string; role: RoleValue }
