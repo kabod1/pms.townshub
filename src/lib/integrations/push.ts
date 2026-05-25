@@ -84,7 +84,7 @@ export async function subscribeToPush(authToken: string): Promise<boolean> {
     _currentSub = sub
     const json = sub.toJSON()
 
-    const res = await fetch('/api/push/subscribe', {
+    const res = await fetch('/api/push?action=subscribe', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -111,7 +111,7 @@ export async function unsubscribeFromPush(authToken: string): Promise<boolean> {
     const sub = _currentSub ?? (await getCurrentSubscription())
     if (!sub) return true
 
-    await fetch('/api/push/subscribe', {
+    await fetch('/api/push?action=subscribe', {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
@@ -139,7 +139,7 @@ export async function sendPushNotification(
   authToken: string
 ): Promise<boolean> {
   try {
-    const res = await fetch('/api/push/send', {
+    const res = await fetch('/api/push?action=send', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
