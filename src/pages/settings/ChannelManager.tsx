@@ -122,7 +122,7 @@ export default function ChannelManager() {
     setTestResult(null)
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch('/api/siteminder/test', {
+      const res = await fetch('/api/siteminder?action=test', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${session?.access_token ?? ''}`,
@@ -183,7 +183,7 @@ export default function ChannelManager() {
     try {
       if (ch.id === 'siteminder') {
         const { data: { session } } = await supabase.auth.getSession()
-        const res = await fetch('/api/siteminder/push', {
+        const res = await fetch('/api/siteminder?action=push', {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${session?.access_token ?? ''}`,
@@ -214,13 +214,13 @@ export default function ChannelManager() {
   }
 
   function copyWebhookUrl() {
-    const url = `${window.location.origin}/api/siteminder/webhook?tenant=${tenant?.slug}`
+    const url = `${window.location.origin}/api/siteminder?action=webhook&tenant=${tenant?.slug}`
     navigator.clipboard.writeText(url)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const webhookUrl = `${window.location.origin}/api/siteminder/webhook?tenant=${tenant?.slug}`
+  const webhookUrl = `${window.location.origin}/api/siteminder?action=webhook&tenant=${tenant?.slug}`
 
   return (
     <DashboardLayout>

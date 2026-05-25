@@ -78,12 +78,12 @@ export async function pushAvailability(
   token: string
 ): Promise<boolean> {
   if (channel === 'siteminder') {
-    const res = await fetch('/api/siteminder/push', {
+    const res = await fetch('/api/siteminder?action=push', {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        from: updates[0]?.date,
-        to:   updates[updates.length - 1]?.date,
+        from:       updates[0]?.date,
+        to:         updates[updates.length - 1]?.date,
         roomTypeId: updates[0]?.roomTypeId,
         ratePlanId: 'DEFAULT',
       }),
