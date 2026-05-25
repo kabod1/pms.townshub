@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { ArrowLeft, FileText, CreditCard, Copy, Check, Link2 } from 'lucide-react'
+import { ArrowLeft, FileText, CreditCard, Copy, Check, Link2, Trash2 } from 'lucide-react'
 import { DashboardLayout } from '@/layouts/DashboardLayout'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Modal } from '@/components/ui/Modal'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
-import { useBooking, useUpdateBooking } from '@/hooks/useBookings'
+import { useBooking, useUpdateBooking, useDeleteBooking } from '@/hooks/useBookings'
 import { usePayments, useCreatePayment } from '@/hooks/usePayments'
 import { useCreateInvoice } from '@/hooks/useInvoices'
 import { formatDate, formatCurrency, nightCount } from '@/lib/utils'
@@ -60,12 +60,19 @@ export default function BookingDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const [showPayModal, setShowPayModal] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
 
   const { data: booking, isLoading } = useBooking(id!)
   const { data: payments } = usePayments(id!)
   const updateBooking = useUpdateBooking()
+  const deleteBooking = useDeleteBooking()
   const createPayment = useCreatePayment()
   const createInvoice = useCreateInvoice()
+
+  async function handleDelete() {
+    await deleteBooking.mutateAsync(booking!.id)
+    navigate('/bookings')
+  }
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<PayForm>({
     resolver: zodResolver(paySchema),
@@ -117,6 +124,13 @@ export default function BookingDetail() {
             onClick={handleGenerateInvoice}
           >
             <FileText size={15} /> Generate Invoice
+          </Button>
+          <Button
+            variant="danger"
+            size="sm"
+            onClick={() => setShowDeleteModal(true)}
+          >
+            <Trash2 size={15} /> Delete
           </Button>
         </div>
 
@@ -293,6 +307,26 @@ export default function BookingDetail() {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        open={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        title="Delete booking?"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-subtext">
+            This will permanently delete booking <span className="font-mono font-semibold text-body">{booking.booking_reference}</span> and all associated payment records. This cannot be undone.
+          </p>
+          <div className="flex gap-3 justify-end pt-1">
+            <Button variant="outline" onClick={() => setShowDeleteModal(false)}>Cancel</Button>
+            <Button variant="danger" loading={deleteBooking.isPending} onClick={handleDelete}>
+              Yes, delete booking
+            </Button>
+          </div>
+        </div>
       </Modal>
     </DashboardLayout>
   )
