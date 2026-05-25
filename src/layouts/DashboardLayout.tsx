@@ -33,6 +33,7 @@ interface NavItem {
 const hotelNavItems: NavItem[] = [
   { to: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
   { to: '/bookings', label: 'Bookings', icon: <CalendarDays size={18} /> },
+  { to: '/settings/channels', label: 'Channels', icon: <ArrowLeftRight size={18} /> },
   { to: '/rooms', label: 'Rooms', icon: <BedDouble size={18} /> },
   { to: '/guests', label: 'Guests', icon: <Users size={18} /> },
   {
