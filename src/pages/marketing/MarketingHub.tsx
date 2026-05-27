@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Sparkles, Copy, Check, Instagram, Facebook, Twitter, Linkedin,
   MessageSquare, Mail, Star, TrendingUp, Gift, ChevronDown,
   Globe, Megaphone, RotateCcw, Download, Lightbulb, Clock,
-  Image, Hash, Zap, Users, BarChart3, ArrowUpRight,
+  Image, Hash, Zap, Users, BarChart3, ArrowUpRight, ShieldCheck, AlertTriangle,
 } from 'lucide-react'
 import { DashboardLayout } from '@/layouts/DashboardLayout'
 import { Button } from '@/components/ui/Button'
@@ -388,6 +388,39 @@ function GuestCampaigns({ tenantId }: { tenantId: string }) {
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<any>(null)
   const [activeVar, setActiveVar] = useState(0)
+  const [consentCount, setConsentCount] = useState<number | null>(null)
+  const [totalCount, setTotalCount] = useState<number | null>(null)
+
+  // Fetch consented guest count whenever segment changes
+  useEffect(() => {
+    async function fetchConsentCount() {
+      setConsentCount(null)
+      setTotalCount(null)
+      try {
+        const now = new Date()
+        const ninetyDaysAgo = new Date(now.getTime() - 90 * 86400000).toISOString().split('T')[0]
+
+        let query = supabase.from('guests').select('id, marketing_consent', { count: 'exact' }).eq('tenant_id', tenantId)
+        let totalQuery = supabase.from('guests').select('id', { count: 'exact' }).eq('tenant_id', tenantId)
+
+        // Approximate segment filtering
+        if (segment === 'new')        { query = query.eq('total_stays', 1);   totalQuery = totalQuery.eq('total_stays', 1) }
+        if (segment === 'returning')  { query = query.gte('total_stays', 2).lte('total_stays', 5); totalQuery = totalQuery.gte('total_stays', 2).lte('total_stays', 5) }
+        if (segment === 'vip')        { query = query.gte('total_stays', 5);  totalQuery = totalQuery.gte('total_stays', 5) }
+        if (segment === 'lapsed')     { query = query.lt('updated_at', ninetyDaysAgo); totalQuery = totalQuery.lt('updated_at', ninetyDaysAgo) }
+        if (segment === 'birthday')   { query = query.not('date_of_birth', 'is', null); totalQuery = totalQuery.not('date_of_birth', 'is', null) }
+        if (segment === 'corporate')  { query = query.not('company_name', 'is', null); totalQuery = totalQuery.not('company_name', 'is', null) }
+
+        const [all, consented] = await Promise.all([
+          totalQuery,
+          query.eq('marketing_consent', true),
+        ])
+        setTotalCount(all.count ?? 0)
+        setConsentCount(consented.count ?? 0)
+      } catch { /* non-critical */ }
+    }
+    fetchConsentCount()
+  }, [segment, tenantId])
 
   async function generate() {
     setLoading(true)
@@ -424,7 +457,24 @@ function GuestCampaigns({ tenantId }: { tenantId: string }) {
               className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
             />
           </div>
-          <Button fullWidth onClick={generate} loading={loading} className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white">
+          {/* GDPR consent count */}
+          {totalCount !== null && (
+            <div className={`rounded-lg px-3 py-2.5 flex items-center gap-2 text-xs ${
+              consentCount === 0 ? 'bg-red-50 border border-red-200 text-red-700'
+              : consentCount! < totalCount! ? 'bg-amber-50 border border-amber-200 text-amber-800'
+              : 'bg-green-50 border border-green-200 text-green-800'
+            }`}>
+              <ShieldCheck size={13} className="shrink-0" />
+              <span>
+                <strong>{consentCount}</strong> of {totalCount} guests in this segment have marketing consent.{' '}
+                {consentCount === 0 && <span className="font-semibold">Do not send — no consented recipients.</span>}
+                {consentCount! > 0 && consentCount! < totalCount! && 'Only send to consented guests.'}
+              </span>
+            </div>
+          )}
+
+          <Button fullWidth onClick={generate} loading={loading} disabled={consentCount === 0}
+            className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white disabled:opacity-40">
             <Sparkles size={15} /> Generate 3 Variations
           </Button>
         </div>
@@ -499,9 +549,13 @@ function GuestCampaigns({ tenantId }: { tenantId: string }) {
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
-                  <Zap size={12} />
+                <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  <Zap size={12} className="shrink-0" />
                   Replace <code className="bg-amber-100 px-1 rounded">{'{{guest_name}}'}</code> with actual guest name before sending
+                </div>
+                <div className="flex items-start gap-2 text-xs text-green-800 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                  <ShieldCheck size={12} className="shrink-0 mt-0.5" />
+                  <span><strong>GDPR:</strong> Only send to guests with <strong>marketing consent = Yes</strong>. Check each guest profile before sending. Guests who opted out must not receive this message.</span>
                 </div>
               </div>
             )}
