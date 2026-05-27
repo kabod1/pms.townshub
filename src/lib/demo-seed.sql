@@ -5,15 +5,17 @@
 -- Step 1: Go to Supabase → Authentication → Users → "Add user"
 --   Email:    demo@townshub.cy
 --   Password: Demo1234!
---   (copy the new user UUID — paste it below as DEMO_USER_ID)
+--   Auto-confirm: ON
 --
--- Step 2: Replace <<DEMO_USER_UUID>> with the actual UUID from Step 1
--- Step 3: Run this entire script in the Supabase SQL Editor
+-- Step 2: Run this entire script — it finds the UUID automatically.
 -- ═══════════════════════════════════════════════════════════════════════
+
+-- Clean up any previous demo run (idempotent)
+DELETE FROM tenants WHERE slug = 'limassol-grand';
 
 DO $$
 DECLARE
-  demo_user_id   UUID := '<<DEMO_USER_UUID>>';   -- ← REPLACE THIS
+  demo_user_id   UUID;   -- auto-resolved below
   tenant_id      UUID := gen_random_uuid();
   -- room type IDs
   rt_standard    UUID := gen_random_uuid();
@@ -48,6 +50,12 @@ DECLARE
   inv5 UUID := gen_random_uuid();
 
 BEGIN
+
+  -- Resolve the demo auth user by email (must exist before running this script)
+  SELECT id INTO demo_user_id FROM auth.users WHERE email = 'demo@townshub.cy';
+  IF demo_user_id IS NULL THEN
+    RAISE EXCEPTION 'Demo user not found. Create auth user demo@townshub.cy first (Supabase → Auth → Users → Add user).';
+  END IF;
 
 -- ── 1. TENANT ──────────────────────────────────────────────────────────────
 INSERT INTO tenants (id, name, slug, email, phone, address, city, country,

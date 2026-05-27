@@ -1,6 +1,6 @@
 import { type ReactNode, useState, useEffect } from 'react'
 import { NavLink, useNavigate, Navigate } from 'react-router-dom'
-import { SUPPORTED_LANGUAGES, changeLanguage, getCurrentLanguage, type SupportedLang } from '@/lib/i18n'
+import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { usePageTracking } from '@/hooks/usePageTracking'
 import {
   LayoutDashboard, CalendarDays, BedDouble, Users, Sparkles,
@@ -200,7 +200,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { sidebarCollapsed, toggleSidebar } = useUIStore()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
-  const [lang, setLang] = useState<SupportedLang>(getCurrentLanguage)
   const [activeMode, setActiveMode] = useState<PlatformMode>(() => {
     const saved = sessionStorage.getItem('platform_mode') as PlatformMode | null
     return saved ?? 'hotel'
@@ -428,22 +427,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
           <div className="flex-1" />
 
-          {/* Language selector */}
-          <select
-            value={lang}
-            onChange={(e) => {
-              const l = e.target.value as SupportedLang
-              setLang(l)
-              changeLanguage(l)
-            }}
-            className="rounded-lg border border-mid bg-light px-2 py-1 text-xs text-body focus:outline-none focus:ring-1 focus:ring-blue hidden sm:block"
-            title="Language"
-          >
-            {SUPPORTED_LANGUAGES.map((l) => (
-              <option key={l.code} value={l.code}>{l.flag} {l.label}</option>
-            ))}
-          </select>
-
+          <LanguageSwitcher />
           <PushNotificationBell />
           <div className="h-8 w-8 rounded-full bg-navy flex items-center justify-center text-xs font-bold text-white">
             {user ? initials(user.full_name) : '?'}
