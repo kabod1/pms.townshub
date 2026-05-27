@@ -76,7 +76,7 @@ export default async function handler(req: any, res: any) {
     name:         item.name,
     quantity:     item.quantity,
     unit_price:   item.unit_price,
-    total_price:  item.unit_price * item.quantity,
+    // total_price is a GENERATED ALWAYS column — omit it; Postgres computes it
     notes:        item.notes ?? null,
   }))
 

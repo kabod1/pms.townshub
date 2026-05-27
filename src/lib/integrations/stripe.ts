@@ -1,24 +1,20 @@
 /**
- * Stripe Integration Stub
- * TODO: Fill in with real credentials before deploying.
+ * Stripe client-side integration
  *
- * Required env vars:
- *   VITE_STRIPE_PUBLISHABLE_KEY=pk_live_...
- *   STRIPE_SECRET_KEY=sk_live_...          (server-side only)
- *   STRIPE_WEBHOOK_SECRET=whsec_...        (server-side only)
+ * Required environment variables (Vite / frontend):
+ *   VITE_STRIPE_PUBLISHABLE_KEY   — Stripe publishable key (pk_live_... or pk_test_...)
+ *
+ * Server-side price IDs are stored in env vars read by api/stripe.ts:
+ *   STRIPE_PRICE_ESSENTIAL, STRIPE_PRICE_PROFESSIONAL, STRIPE_PRICE_ENTERPRISE
+ *
+ * See src/lib/stripe-setup.md for instructions on creating Stripe products/prices.
  */
 
 export const STRIPE_CONFIG = {
   publishableKey: import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY ?? '',
-  // Pricing: map subscription tiers to Stripe Price IDs
-  prices: {
-    essential: import.meta.env.VITE_STRIPE_PRICE_ESSENTIAL ?? 'price_REPLACE_ESSENTIAL',
-    professional: import.meta.env.VITE_STRIPE_PRICE_PROFESSIONAL ?? 'price_REPLACE_PROFESSIONAL',
-    enterprise: import.meta.env.VITE_STRIPE_PRICE_ENTERPRISE ?? 'price_REPLACE_ENTERPRISE',
-  },
 } as const
 
-export type StripeTier = keyof typeof STRIPE_CONFIG.prices
+export type StripeTier = 'essential' | 'professional' | 'enterprise'
 
 /**
  * Load Stripe.js on demand (already installed: @stripe/stripe-js ^4.0.0)
@@ -34,43 +30,94 @@ export async function loadStripeInstance() {
 }
 
 /**
- * Create a Stripe Checkout session via the server API.
- * Server endpoint: POST /api/stripe/create-checkout
+ * Create a Stripe Checkout session.
+ * Calls POST /api/stripe?action=checkout with the Bearer token from localStorage.
+ * Returns { url } to redirect to Stripe-hosted checkout.
  */
-export async function createCheckoutSession(_params: {
+export async function createCheckoutSession(params: {
   tenantId: string
   tier: StripeTier
-  email: string
-  successUrl?: string
-  cancelUrl?: string
 }): Promise<{ url: string } | null> {
-  // TODO: Implement /api/stripe/create-checkout serverless function
-  console.warn('[Stripe] createCheckoutSession stub called — wire up /api/stripe/create-checkout')
-  return null
+  const token = getAuthToken()
+  if (!token) {
+    console.warn('[Stripe] No auth token available')
+    return null
+  }
+
+  const res = await fetch('/api/stripe?action=checkout', {
+    method: 'POST',
+    headers: {
+      'Content-Type':  'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({ tenantId: params.tenantId, tier: params.tier }),
+  })
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.error ?? `Checkout failed (${res.status})`)
+  }
+
+  return res.json()
 }
 
 /**
  * Open the Stripe Customer Portal.
- * Server endpoint: POST /api/stripe/portal
+ * Calls POST /api/stripe?action=portal with the Bearer token from localStorage.
+ * Returns { url } to redirect to the Stripe-hosted portal.
  */
-export async function openBillingPortal(_params: {
+export async function openBillingPortal(params: {
   tenantId: string
-  returnUrl?: string
 }): Promise<{ url: string } | null> {
-  // TODO: Implement /api/stripe/portal serverless function
-  console.warn('[Stripe] openBillingPortal stub called — wire up /api/stripe/portal')
+  const token = getAuthToken()
+  if (!token) {
+    console.warn('[Stripe] No auth token available')
+    return null
+  }
+
+  const res = await fetch('/api/stripe?action=portal', {
+    method: 'POST',
+    headers: {
+      'Content-Type':  'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({ tenantId: params.tenantId }),
+  })
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.error ?? `Portal failed (${res.status})`)
+  }
+
+  return res.json()
+}
+
+// ── internal ──────────────────────────────────────────────────────────────────
+
+/** Read the Supabase session token from localStorage (set by @supabase/supabase-js) */
+function getAuthToken(): string | null {
+  try {
+    // Supabase stores the session under keys like `sb-<project>-auth-token`
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key?.startsWith('sb-') && key.endsWith('-auth-token')) {
+        const raw = localStorage.getItem(key)
+        if (!raw) continue
+        const parsed = JSON.parse(raw)
+        return parsed?.access_token ?? null
+      }
+    }
+  } catch {
+    // localStorage not available (SSR / incognito edge case)
+  }
   return null
 }
 
 /**
- * Server-side: verify Stripe webhook signature.
- * TODO: Implement in api/stripe/webhook.ts
- * Events to handle: checkout.session.completed, customer.subscription.updated,
- *                   customer.subscription.deleted, invoice.payment_failed
+ * Stripe webhook events handled by api/stripe.ts
  */
 export const STRIPE_WEBHOOK_EVENTS = [
   'checkout.session.completed',
   'customer.subscription.updated',
   'customer.subscription.deleted',
-  'invoice.payment_failed',
 ] as const

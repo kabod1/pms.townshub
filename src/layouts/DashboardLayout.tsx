@@ -220,9 +220,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const role = user?.role ?? 'front_desk'
 
   const HOTEL_ROLE_NAV: Record<string, string[]> = {
-    admin:        [], // empty = all
-    manager:      [], // all (sub-page restriction handled in settings pages)
-    front_desk:   ['/dashboard', '/bookings', '/rooms', '/guests', '/invoices', '/messaging'],
+    admin: [], // empty = all
+    manager: [], // all (sub-page restriction handled in settings pages)
+    front_desk: ['/dashboard', '/bookings', '/rooms', '/guests', '/invoices', '/messaging'],
     housekeeping: ['/dashboard', '/housekeeping'],
   }
 

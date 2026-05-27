@@ -18,6 +18,7 @@ import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { useLease, useUpdateLease, useActivateLease } from '@/hooks/useLeases'
+import type { LeaseWithDetails } from '@/hooks/useLeases'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
 import { formatDate } from '@/lib/utils'
@@ -88,7 +89,7 @@ export default function LeaseDetail() {
   const [terminateOpen, setTerminateOpen] = useState(false)
   const [terminateReason, setTerminateReason] = useState('')
 
-  const { data: lease, isLoading } = useLease(id ?? '')
+  const { data: lease, isLoading } = useLease(id ?? '') as { data: LeaseWithDetails | undefined; isLoading: boolean }
   const activateLease = useActivateLease()
   const updateLease = useUpdateLease()
   const { data: schedule } = useRentSchedule(id ?? '')
@@ -179,16 +180,35 @@ export default function LeaseDetail() {
         <div className="grid grid-cols-3 gap-4">
           <Card>
             <p className="text-xs text-subtext mb-1">Unit</p>
-            <p className="text-sm font-semibold text-body">{lease.unit_id}</p>
+            {lease.unit ? (
+              <button
+                className="text-sm font-semibold text-blue-600 hover:underline text-left"
+                onClick={() => navigate(`/units/${lease.unit_id}`)}
+              >
+                Unit {lease.unit.unit_number}
+                {lease.unit.property ? ` — ${lease.unit.property.name}` : ''}
+              </button>
+            ) : (
+              <p className="text-sm font-semibold text-body font-mono">{lease.unit_id.slice(0, 8)}…</p>
+            )}
           </Card>
           <Card>
             <p className="text-xs text-subtext mb-1">Renter</p>
-            <button
-              className="text-sm font-semibold text-blue-600 hover:underline text-left"
-              onClick={() => navigate(`/renters/${lease.property_tenant_id}`)}
-            >
-              View Renter
-            </button>
+            {lease.property_tenant ? (
+              <button
+                className="text-sm font-semibold text-blue-600 hover:underline text-left"
+                onClick={() => navigate(`/renters/${lease.property_tenant_id}`)}
+              >
+                {lease.property_tenant.first_name} {lease.property_tenant.last_name}
+              </button>
+            ) : (
+              <button
+                className="text-sm font-semibold text-blue-600 hover:underline text-left"
+                onClick={() => navigate(`/renters/${lease.property_tenant_id}`)}
+              >
+                View Renter
+              </button>
+            )}
           </Card>
           <Card>
             <p className="text-xs text-subtext mb-1">Deposit</p>

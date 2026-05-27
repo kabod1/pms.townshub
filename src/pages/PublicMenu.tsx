@@ -80,7 +80,7 @@ export default function PublicMenu() {
 
   useEffect(() => {
     if (!slug) return
-    fetch(`/api/menu?slug=${slug}`)
+    fetch(`/api/fb?action=menu&slug=${slug}`)
       .then((r) => r.json())
       .then((json) => {
         if (json.error) throw new Error(json.error)
@@ -148,7 +148,7 @@ export default function PublicMenu() {
         payment_method: payMethod,
         table_token:    tableToken ?? null,
       }
-      const res = await fetch('/api/order', {
+      const res = await fetch('/api/fb?action=order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),

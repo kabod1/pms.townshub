@@ -6,6 +6,8 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { useAuth } from '@/hooks/useAuth'
 import { CookieBanner } from '@/components/CookieBanner'
+import { PWAInstallPrompt } from '@/components/PWAInstallPrompt'
+import { OfflineIndicator } from '@/components/OfflineIndicator'
 
 // Auth pages
 const Login = lazy(() => import('@/pages/auth/Login'))
@@ -116,6 +118,7 @@ const AdminDashboard = lazy(() => import('@/pages/admin/AdminDashboard'))
 const GuestChat = lazy(() => import('@/pages/GuestChat'))
 
 // Public
+const Landing = lazy(() => import('@/pages/Landing'))
 const PreCheckin = lazy(() => import('@/pages/PreCheckin'))
 const PublicMenu = lazy(() => import('@/pages/PublicMenu'))
 const PrivacyPolicy = lazy(() => import('@/pages/legal/PrivacyPolicy'))
@@ -136,7 +139,7 @@ function AppRoutes() {
     <ErrorBoundary>
     <Suspense fallback={<LoadingSpinner fullPage />}>
       <Routes>
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/" element={<Landing />} />
 
         {/* Auth */}
         <Route path="/auth/login" element={<Login />} />
@@ -253,7 +256,7 @@ function AppRoutes() {
         <Route path="/privacy" element={<PrivacyPolicy />} />
 
         {/* Catch-all */}
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Suspense>
     </ErrorBoundary>
@@ -264,8 +267,10 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
+        <OfflineIndicator />
         <AppRoutes />
         <CookieBanner />
+        <PWAInstallPrompt />
         <Toaster
           position="top-right"
           toastOptions={{

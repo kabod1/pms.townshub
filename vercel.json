@@ -58,6 +58,15 @@
       ]
     },
     {
+      "source": "/api/stripe",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        }
+      ]
+    },
+    {
       "source": "/sw.js",
       "headers": [
         {
