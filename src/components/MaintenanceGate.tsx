@@ -91,28 +91,28 @@ export default function MaintenanceGate({ children }: { children: React.ReactNod
       return
     }
 
-    const client = createClient(DASHBOARD_URL, DASHBOARD_ANON, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    })
-
-    client
-      .from('maintenance_mode')
-      .select('is_active, message, reason, estimated_return')
-      .eq('app_id', 'pms')
-      .single()
-      .then(({ data }) => {
+    const check = async () => {
+      try {
+        const client = createClient(DASHBOARD_URL, DASHBOARD_ANON, {
+          auth: { persistSession: false, autoRefreshToken: false },
+        })
+        const { data } = await client
+          .from('maintenance_mode')
+          .select('is_active, message, reason, estimated_return')
+          .eq('app_id', 'pms')
+          .single()
         setState({
           checked: true,
-          active: data?.is_active ?? false,
-          message: data?.message ?? '',
-          reason: data?.reason ?? '',
+          active:          data?.is_active       ?? false,
+          message:         data?.message         ?? '',
+          reason:          data?.reason          ?? '',
           estimatedReturn: data?.estimated_return ?? null,
         })
-      })
-      .catch(() => {
-        // If check fails, don't block access
+      } catch {
         setState(s => ({ ...s, checked: true }))
-      })
+      }
+    }
+    check()
   }, [])
 
   if (!state.checked) return null // brief invisible wait
