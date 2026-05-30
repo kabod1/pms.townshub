@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
 
-const DASHBOARD_URL  = import.meta.env.VITE_TOWNSHUB_DASHBOARD_URL  as string
-const DASHBOARD_ANON = import.meta.env.VITE_TOWNSHUB_DASHBOARD_ANON as string
+const DASHBOARD_URL  = import.meta.env.VITE_TOWNSHUB_ADMIN_URL  as string
+const DASHBOARD_ANON = import.meta.env.VITE_TOWNSHUB_ADMIN_ANON as string
 
 const isLocalhost = ['localhost', '127.0.0.1', ''].includes(window.location.hostname)
 
