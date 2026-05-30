@@ -8,6 +8,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { CookieBanner } from '@/components/CookieBanner'
 import { PWAInstallPrompt } from '@/components/PWAInstallPrompt'
 import { OfflineIndicator } from '@/components/OfflineIndicator'
+import MaintenanceGate from '@/components/MaintenanceGate'
 
 // Auth pages
 const Login = lazy(() => import('@/pages/auth/Login'))
@@ -267,6 +268,7 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
+        <MaintenanceGate>
         <OfflineIndicator />
         <AppRoutes />
         <CookieBanner />
@@ -280,6 +282,7 @@ export default function App() {
             error: { iconTheme: { primary: '#B71C1C', secondary: '#fff' } },
           }}
         />
+        </MaintenanceGate>
       </BrowserRouter>
     </QueryClientProvider>
   )

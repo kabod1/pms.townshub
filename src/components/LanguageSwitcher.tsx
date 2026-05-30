@@ -97,20 +97,34 @@ export function LanguageSwitcher({ variant = 'topbar' }: Props) {
 
       {/* Dropdown */}
       {open && (
-        <div
-          className="absolute right-0 top-full mt-1.5 z-50 w-72 rounded-2xl bg-white border border-mid shadow-xl overflow-hidden"
-          role="listbox"
-          aria-label="Select language"
-        >
+        <>
+          {/* Mobile: full-screen overlay backdrop */}
+          <div className="fixed inset-0 z-40 sm:hidden" onClick={() => setOpen(false)} />
+          <div
+            className={[
+              /* Mobile: centered fixed panel */
+              'fixed left-3 right-3 top-16 z-50 rounded-2xl bg-white border border-mid shadow-2xl overflow-hidden',
+              /* Desktop: absolute dropdown */
+              'sm:absolute sm:fixed-auto sm:left-auto sm:right-0 sm:top-full sm:mt-1.5 sm:w-72',
+            ].join(' ')}
+            role="listbox"
+            aria-label="Select language"
+          >
           {/* Header */}
-          <div className="px-4 py-2.5 border-b border-mid bg-gray-50">
+          <div className="px-4 py-2.5 border-b border-mid bg-gray-50 flex items-center justify-between">
             <p className="text-xs font-semibold text-subtext uppercase tracking-wider">
               Choose language
             </p>
+            <button onClick={() => setOpen(false)} className="sm:hidden text-gray-400 hover:text-gray-600 p-1">
+              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <line x1="18" y1="6" x2="6" y2="18" strokeLinecap="round" />
+                <line x1="6" y1="6" x2="18" y2="18" strokeLinecap="round" />
+              </svg>
+            </button>
           </div>
 
           {/* Language grid */}
-          <div className="p-2 grid grid-cols-2 gap-1 max-h-72 overflow-y-auto">
+          <div className="p-2 grid grid-cols-2 gap-1 max-h-[60vh] sm:max-h-72 overflow-y-auto">
             {SUPPORTED_LANGUAGES.map((lang) => {
               const isActive = current === lang.code
               return (
@@ -148,7 +162,8 @@ export function LanguageSwitcher({ variant = 'topbar' }: Props) {
               16 languages supported · preference saved locally
             </p>
           </div>
-        </div>
+          </div>{/* end panel */}
+        </>
       )}
     </div>
   )
