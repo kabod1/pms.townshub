@@ -195,18 +195,14 @@ function NavBar({ onCtaClick }: { onCtaClick: () => void }) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <a href="#" className="flex items-center gap-2">
-            <img
-              src={scrolled ? '/logo-icon.jpg' : '/logo-white.jpg'}
-              alt="TownsHub"
-              className="h-9 w-9 object-contain rounded-lg"
-            />
-            <span
-              className="font-bold text-lg tracking-tight"
-              style={{ color: scrolled ? NAVY : 'white' }}
-            >
-              TownsHub
-            </span>
+          <a href="#" className="flex items-center">
+            <div className="bg-white rounded-xl px-2.5 py-1 shadow-sm">
+              <img
+                src="/logo.jpeg"
+                alt="TownsHub Limited"
+                className="h-10 object-contain"
+              />
+            </div>
           </a>
 
           {/* Desktop nav */}
@@ -1058,13 +1054,14 @@ export default function Landing() {
           <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-8 mb-12">
             {/* Brand */}
             <div className="lg:col-span-2">
-              <div className="flex items-center gap-2 mb-4">
-                <img
-                  src="/logo-white.jpg"
-                  alt="TownsHub"
-                  className="h-9 w-9 object-contain rounded-lg"
-                />
-                <span className="font-bold text-lg text-white">TownsHub</span>
+              <div className="mb-4">
+                <div className="bg-white rounded-xl px-2.5 py-1 inline-block shadow-sm">
+                  <img
+                    src="/logo.jpeg"
+                    alt="TownsHub Limited"
+                    className="h-10 object-contain"
+                  />
+                </div>
               </div>
               <p className="text-white/50 text-sm leading-relaxed mb-4 max-w-xs">
                 The complete hotel and property management platform, built for European hospitality.
