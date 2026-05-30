@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
-  Hotel, Building2, Users, CalendarDays, CreditCard, BarChart3,
+  Building2, Users, CalendarDays, CreditCard, BarChart3,
   Globe2, Shield, Zap, Star, ArrowRight, Check, ChevronDown,
   Wifi, Bell, MessageSquare, FileText, Settings,
   TrendingUp, Award, Lock, HeartHandshake, ChevronRight, Menu, X,
@@ -196,12 +196,11 @@ function NavBar({ onCtaClick }: { onCtaClick: () => void }) {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <a href="#" className="flex items-center gap-2">
-            <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center"
-              style={{ background: scrolled ? NAVY : GOLD }}
-            >
-              <Hotel size={16} className={scrolled ? 'text-white' : 'text-white'} />
-            </div>
+            <img
+              src={scrolled ? '/logo-icon.jpg' : '/logo-white.jpg'}
+              alt="TownsHub"
+              className="h-9 w-9 object-contain rounded-lg"
+            />
             <span
               className="font-bold text-lg tracking-tight"
               style={{ color: scrolled ? NAVY : 'white' }}
@@ -1060,12 +1059,11 @@ export default function Landing() {
             {/* Brand */}
             <div className="lg:col-span-2">
               <div className="flex items-center gap-2 mb-4">
-                <div
-                  className="w-8 h-8 rounded-lg flex items-center justify-center"
-                  style={{ background: GOLD }}
-                >
-                  <Hotel size={16} className="text-white" />
-                </div>
+                <img
+                  src="/logo-white.jpg"
+                  alt="TownsHub"
+                  className="h-9 w-9 object-contain rounded-lg"
+                />
                 <span className="font-bold text-lg text-white">TownsHub</span>
               </div>
               <p className="text-white/50 text-sm leading-relaxed mb-4 max-w-xs">
