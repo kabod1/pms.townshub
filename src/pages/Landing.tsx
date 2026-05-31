@@ -95,22 +95,24 @@ const PRICING: PricingPlan[] = [
   {
     tier: 'essential',
     name: 'Essential',
-    price: 299,
+    price: 59,
     period: '/mo',
-    description: 'Perfect for small hotels and B&Bs.',
+    description: 'Perfect for small hotels, B&Bs and startups.',
     cta: 'Start free trial',
     features: [
       'Up to 20 rooms',
       'Bookings & Guests',
-      'Invoicing',
+      'Invoicing & Payments',
       'Housekeeping',
       'Basic Reports',
+      'Email support',
+      'GDPR tools',
     ],
   },
   {
     tier: 'professional',
     name: 'Professional',
-    price: 599,
+    price: 149,
     period: '/mo',
     description: 'For growing hotels that need more power.',
     cta: 'Start free trial',
@@ -121,26 +123,35 @@ const PRICING: PricingPlan[] = [
       'QR F&B Module',
       'Guest Communications',
       'Advanced Analytics',
+      'Channel Manager (SiteMinder)',
       'Multi-currency',
+      'AI concierge & chat',
+      'Priority support',
     ],
   },
   {
     tier: 'enterprise',
     name: 'Enterprise',
-    price: 1199,
+    price: 349,
     period: '/mo',
     description: 'Multi-property groups and resort chains.',
     cta: 'Contact sales',
     features: [
-      'Unlimited rooms',
+      'Unlimited rooms & properties',
       'All Professional features',
       'OTA Channel Manager',
+      'Property Management module',
+      'Owner portal',
       'API Access',
-      'Priority Support',
-      'Custom Integrations',
+      'Dedicated account manager',
+      'SLA & uptime guarantee',
+      'White-label option',
     ],
   },
 ]
+
+const PER_ROOM_RATE = 4.5
+const PER_ROOM_MIN  = 29
 
 const TESTIMONIALS = [
   {
@@ -354,6 +365,8 @@ function PricingCard({ plan, onCtaClick }: { plan: PricingPlan; onCtaClick: () =
 export default function Landing() {
   const navigate = useNavigate()
   const { user, isInitialized } = useAuthStore()
+  const [pricingMode, setPricingMode] = useState<'flat' | 'perroom'>('flat')
+  const [roomCount,   setRoomCount]   = useState(15)
 
   // Redirect authenticated users to dashboard
   useEffect(() => {
@@ -802,7 +815,7 @@ export default function Landing() {
       {/* ── PRICING ────────────────────────────────────────────────────────── */}
       <section id="pricing" className="py-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
+          <div className="text-center mb-10">
             <span className="text-xs font-bold uppercase tracking-widest" style={{ color: GOLD }}>
               Simple pricing
             </span>
@@ -810,20 +823,118 @@ export default function Landing() {
               Transparent. No surprises.
             </h2>
             <p className="text-gray-500 max-w-xl mx-auto">
-              All plans include 14-day free trial. No credit card required to start.
+              All plans include a 14-day free trial. No credit card required.
               Annual billing saves 20%.
             </p>
+
+            {/* Pricing mode toggle */}
+            <div className="inline-flex items-center gap-1 mt-8 p-1 rounded-xl bg-gray-100 border border-gray-200">
+              <button
+                onClick={() => setPricingMode('flat')}
+                className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
+                  pricingMode === 'flat'
+                    ? 'bg-white shadow text-gray-900'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Fixed Plans
+              </button>
+              <button
+                onClick={() => setPricingMode('perroom')}
+                className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
+                  pricingMode === 'perroom'
+                    ? 'bg-white shadow text-gray-900'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Pay Per Room
+              </button>
+            </div>
           </div>
 
-          <div className="grid sm:grid-cols-3 gap-6 max-w-5xl mx-auto">
-            {PRICING.map((plan) => (
-              <PricingCard key={plan.tier} plan={plan} onCtaClick={handleCta} />
-            ))}
-          </div>
+          {pricingMode === 'flat' ? (
+            <>
+              <div className="grid sm:grid-cols-3 gap-6 max-w-5xl mx-auto">
+                {PRICING.map((plan) => (
+                  <PricingCard key={plan.tier} plan={plan} onCtaClick={handleCta} />
+                ))}
+              </div>
+              <p className="text-center text-sm text-gray-400 mt-8">
+                All prices exclude VAT. Cyprus VAT 19% applies where applicable.
+              </p>
+            </>
+          ) : (
+            <div className="max-w-2xl mx-auto">
+              {/* Per-room calculator */}
+              <div className="rounded-3xl border-2 p-8 sm:p-10 text-center" style={{ borderColor: GOLD, background: `${NAVY}08` }}>
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold mb-6"
+                  style={{ background: `${GOLD}20`, color: '#b8892a' }}>
+                  <Zap size={11} /> Most flexible · Scales with your property
+                </div>
+                <h3 className="text-3xl font-black mb-2" style={{ color: NAVY }}>
+                  €{PER_ROOM_RATE}<span className="text-lg font-medium text-gray-500">/room/month</span>
+                </h3>
+                <p className="text-gray-500 text-sm mb-8">
+                  Minimum €{PER_ROOM_MIN}/month · Only pay for rooms you actually have
+                </p>
 
-          <p className="text-center text-sm text-gray-400 mt-8">
-            All prices exclude VAT. Cyprus VAT 19% applies where applicable.
-          </p>
+                {/* Slider calculator */}
+                <div className="bg-white rounded-2xl p-6 border border-gray-200 mb-8 text-left">
+                  <label className="text-sm font-semibold text-gray-700 block mb-3">
+                    How many rooms do you have?
+                    <span className="ml-2 text-lg font-black" style={{ color: NAVY }}>{roomCount}</span>
+                  </label>
+                  <input
+                    type="range" min={1} max={200} value={roomCount}
+                    onChange={e => setRoomCount(Number(e.target.value))}
+                    className="w-full accent-yellow-500 cursor-pointer"
+                  />
+                  <div className="flex justify-between text-xs text-gray-400 mt-1">
+                    <span>1 room</span><span>200 rooms</span>
+                  </div>
+                  <div className="mt-5 pt-5 border-t border-gray-100 flex items-center justify-between">
+                    <span className="text-gray-600 font-medium">Your monthly cost</span>
+                    <span className="text-2xl font-black" style={{ color: NAVY }}>
+                      €{Math.max(PER_ROOM_MIN, Math.round(roomCount * PER_ROOM_RATE))}
+                      <span className="text-sm font-normal text-gray-400">/mo</span>
+                    </span>
+                  </div>
+                  {roomCount * PER_ROOM_RATE < PER_ROOM_MIN && (
+                    <p className="text-xs text-gray-400 mt-1 text-right">
+                      Minimum applies (€{PER_ROOM_MIN}/mo)
+                    </p>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 text-left mb-8 text-sm">
+                  {[
+                    'All Essential features included',
+                    'No room limit caps',
+                    'Scale up or down anytime',
+                    'Channel Manager from €149 add-on',
+                    '14-day free trial',
+                    'Cancel any time',
+                  ].map(f => (
+                    <div key={f} className="flex items-center gap-2 text-gray-600">
+                      <Check size={14} className="text-green-500 flex-shrink-0" />
+                      {f}
+                    </div>
+                  ))}
+                </div>
+
+                <button
+                  onClick={handleCta}
+                  className="w-full py-3.5 rounded-xl font-bold text-white text-sm transition-all hover:opacity-90"
+                  style={{ background: NAVY }}
+                >
+                  Start free trial — 14 days free
+                </button>
+              </div>
+              <p className="text-center text-sm text-gray-400 mt-6">
+                All prices exclude VAT. Cyprus VAT 19% applies where applicable.
+              </p>
+            </div>
+          )}
         </div>
       </section>
 
