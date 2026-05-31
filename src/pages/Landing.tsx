@@ -1060,15 +1060,11 @@ export default function Landing() {
               <div className="space-y-1.5 text-sm text-white/40">
                 <div className="flex items-center gap-2">
                   <MapPin size={13} />
-                  <span>TownsHub LLC, Limassol, Cyprus</span>
+                  <span>TownsHub LLC, Nicosia, Cyprus</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Mail size={13} />
-                  <a href="mailto:hello@townshub.cy" className="hover:text-white/70 transition-colors">hello@townshub.cy</a>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Mail size={13} />
-                  <a href="mailto:privacy@townshub.cy" className="hover:text-white/70 transition-colors">privacy@townshub.cy</a>
+                  <a href="mailto:admin@townshub.com" className="hover:text-white/70 transition-colors">admin@townshub.com</a>
                 </div>
               </div>
             </div>
@@ -1098,7 +1094,7 @@ export default function Landing() {
                   { label: 'About', href: '#about' },
                   { label: 'Blog', href: '#blog' },
                   { label: 'Careers', href: '#careers' },
-                  { label: 'Contact', href: 'mailto:hello@townshub.cy' },
+                  { label: 'Contact', href: 'mailto:admin@townshub.com' },
                 ].map((link) => (
                   <li key={link.label}>
                     <a
