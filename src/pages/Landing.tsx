@@ -195,14 +195,13 @@ function NavBar({ onCtaClick }: { onCtaClick: () => void }) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <a href="#" className="flex items-center">
-            <div className="bg-white rounded-xl px-2.5 py-1 shadow-sm">
-              <img
-                src="/logo.jpeg"
-                alt="TownsHub Limited"
-                className="h-10 object-contain"
-              />
+          <a href="#" className="flex items-center gap-3">
+            <div className="bg-white rounded-xl p-1.5 shadow-sm flex-shrink-0">
+              <img src="/logo-icon.jpg" alt="TownsHub" className="h-8 w-8 object-contain rounded-lg" />
             </div>
+            <span className="font-extrabold text-xl tracking-tight" style={{ color: scrolled ? NAVY : 'white' }}>
+              TownsHub PMS
+            </span>
           </a>
 
           {/* Desktop nav */}
