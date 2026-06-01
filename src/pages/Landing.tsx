@@ -353,7 +353,7 @@ function PricingCard({ plan, onCtaClick }: { plan: PricingPlan; onCtaClick: () =
       >
         {plan.cta}
         {plan.tier !== 'enterprise' && (
-          <span className="text-xs font-normal ml-1.5 opacity-75">— 14 days free</span>
+          <span className="text-xs font-normal ml-1.5 opacity-75">— 40 days free</span>
         )}
       </button>
     </div>
@@ -438,7 +438,7 @@ export default function Landing() {
                   className="flex items-center gap-2 px-6 py-3.5 rounded-xl font-bold text-white text-sm transition-all hover:opacity-90 active:scale-95 shadow-lg"
                   style={{ background: GOLD }}
                 >
-                  Start free 14-day trial
+                  Start free 40-day trial
                   <ArrowRight size={16} />
                 </button>
                 <a
@@ -823,7 +823,7 @@ export default function Landing() {
               Transparent. No surprises.
             </h2>
             <p className="text-gray-500 max-w-xl mx-auto">
-              All plans include a 14-day free trial. No credit card required.
+              All plans include a 40-day free trial. No credit card required.
               Annual billing saves 20%.
             </p>
 
@@ -912,7 +912,7 @@ export default function Landing() {
                     'No room limit caps',
                     'Scale up or down anytime',
                     'Channel Manager from €149 add-on',
-                    '14-day free trial',
+                    '40-day free trial',
                     'Cancel any time',
                   ].map(f => (
                     <div key={f} className="flex items-center gap-2 text-gray-600">
@@ -927,7 +927,7 @@ export default function Landing() {
                   className="w-full py-3.5 rounded-xl font-bold text-white text-sm transition-all hover:opacity-90"
                   style={{ background: NAVY }}
                 >
-                  Start free trial — 14 days free
+                  Start free trial — 40 days free
                 </button>
               </div>
               <p className="text-center text-sm text-gray-400 mt-6">
@@ -1129,7 +1129,7 @@ export default function Landing() {
             Ready to transform your hotel?
           </h2>
           <p className="text-white/80 text-lg mb-8">
-            Join hotels across Cyprus and Europe. Start your free 14-day trial today — no credit card required.
+            Join hotels across Cyprus and Europe. Start your free 40-day trial today — no credit card required.
           </p>
           <div className="flex flex-wrap justify-center gap-4">
             <button

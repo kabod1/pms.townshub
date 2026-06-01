@@ -22,7 +22,7 @@ CREATE TABLE tenants (
   stripe_subscription_id TEXT,
   subscription_tier TEXT CHECK (subscription_tier IN ('essential','professional','enterprise')),
   subscription_status TEXT DEFAULT 'trialing',
-  trial_ends_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '30 days'),
+  trial_ends_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '40 days'),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
