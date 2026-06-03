@@ -204,7 +204,8 @@ export default function ChannelManager() {
         }
         await loadConfigs()
       } else {
-        toast.success(`${ch.label} sync triggered — implement /api/channels/push to activate`)
+        // Booking.com, Expedia, Airbnb sync via SiteMinder — credentials are saved
+        toast.success(`${ch.label} credentials saved. Sync is routed through SiteMinder — ensure SiteMinder is connected to activate live sync.`)
       }
     } catch {
       toast.error('Sync failed')
@@ -420,9 +421,25 @@ export default function ChannelManager() {
                   loading={icalImporting}
                   onClick={async () => {
                     setIcalImporting(true)
-                    await new Promise((r) => setTimeout(r, 1000))
-                    toast.success('iCal import triggered (stub)')
-                    setIcalImporting(false)
+                    try {
+                      const { data: { session } } = await supabase.auth.getSession()
+                      const res = await fetch('/api/siteminder?action=ical-import', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          Authorization: `Bearer ${session?.access_token ?? ''}`,
+                        },
+                        body: JSON.stringify({ url: icalUrl }),
+                      })
+                      const body = await res.json()
+                      if (!res.ok) throw new Error(body.error ?? 'Import failed')
+                      toast.success(`iCal import complete — ${body.imported} booking(s) added, ${body.skipped ?? 0} past events skipped`)
+                      setIcalUrl('')
+                    } catch (err: any) {
+                      toast.error(err.message ?? 'Import failed')
+                    } finally {
+                      setIcalImporting(false)
+                    }
                   }}
                   disabled={!icalUrl.trim()}
                 >

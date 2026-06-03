@@ -185,16 +185,119 @@ async function handleWebhook(req: any, res: any, db: ReturnType<typeof getDb>) {
   return res.status(200).json({ ok: true, processed: results.length, results })
 }
 
+// ─── iCal import ─────────────────────────────────────────────────────────────
+
+function parseIcal(text: string): Array<{ uid: string; summary: string; dtstart: string; dtend: string; description?: string }> {
+  const events: ReturnType<typeof parseIcal> = []
+  const blocks = text.split('BEGIN:VEVENT')
+  for (let i = 1; i < blocks.length; i++) {
+    const block = blocks[i]
+    function get(key: string): string {
+      const m = block.match(new RegExp(`${key}(?:;[^:]*)?:([^\\r\\n]+)`, 'i'))
+      return m ? m[1].trim() : ''
+    }
+    function toDate(val: string): string {
+      const v = val.replace(/T.*$/, '').replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')
+      return v
+    }
+    const uid     = get('UID')
+    const summary = get('SUMMARY')
+    const start   = toDate(get('DTSTART'))
+    const end     = toDate(get('DTEND'))
+    if (uid && start && end) {
+      events.push({ uid, summary, dtstart: start, dtend: end, description: get('DESCRIPTION') || undefined })
+    }
+  }
+  return events
+}
+
+async function handleIcalImport(req: any, res: any, db: ReturnType<typeof getDb>) {
+  const user = await getAuthedUser(req, db)
+  if (!user) return res.status(401).json({ error: 'Unauthorised' })
+  const tenantId = await getTenantId(user.id, db)
+  if (!tenantId) return res.status(401).json({ error: 'No tenant' })
+
+  const { url } = req.body ?? {}
+  if (!url || typeof url !== 'string') return res.status(400).json({ error: 'url is required' })
+
+  // Fetch the iCal feed
+  let icalText: string
+  try {
+    const response = await fetch(url, { headers: { 'User-Agent': 'TownsHub-PMS/1.0' } })
+    if (!response.ok) throw new Error(`HTTP ${response.status}`)
+    icalText = await response.text()
+  } catch (err: any) {
+    return res.status(400).json({ error: `Failed to fetch iCal URL: ${err.message}` })
+  }
+
+  if (!icalText.includes('BEGIN:VCALENDAR')) {
+    return res.status(400).json({ error: 'URL does not appear to be a valid iCal feed' })
+  }
+
+  const events = parseIcal(icalText)
+  if (events.length === 0) {
+    return res.status(200).json({ ok: true, imported: 0, message: 'No events found in feed' })
+  }
+
+  // Get rooms to assign blocks to — use the first active room as the target
+  const { data: rooms } = await db
+    .from('rooms')
+    .select('id, number')
+    .eq('tenant_id', tenantId)
+    .eq('is_active', true)
+    .order('number')
+    .limit(1)
+
+  const roomId = rooms?.[0]?.id ?? null
+
+  // Upsert bookings from iCal events (marked as source='ical', status='confirmed')
+  let imported = 0
+  let skipped  = 0
+  const today  = new Date().toISOString().slice(0, 10)
+
+  for (const ev of events) {
+    if (ev.dtend < today) { skipped++; continue }
+    const ref = `ICAL-${ev.uid.slice(0, 16).replace(/[^A-Z0-9]/gi, '').toUpperCase()}`
+    const nights = Math.max(1, Math.round(
+      (new Date(ev.dtend).getTime() - new Date(ev.dtstart).getTime()) / 86_400_000
+    ))
+
+    const { error } = await db.from('bookings').upsert({
+      tenant_id:          tenantId,
+      booking_reference:  ref,
+      check_in_date:      ev.dtstart,
+      check_out_date:     ev.dtend,
+      status:             'confirmed',
+      source:             'other',
+      room_id:            roomId,
+      adults:             2,
+      children:           0,
+      room_rate:          0,
+      total_amount:       0,
+      paid_amount:        0,
+      special_requests:   ev.summary ?? null,
+      notes:              ev.description ? ev.description.slice(0, 500) : null,
+    }, { onConflict: 'tenant_id,booking_reference', ignoreDuplicates: true })
+
+    if (!error) imported++
+  }
+
+  return res.status(200).json({ ok: true, imported, skipped, total: events.length })
+}
+
 // ─── Router ───────────────────────────────────────────────────────────────────
 
 export default async function handler(req: any, res: any) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
   const db     = getDb()
   const action = req.query?.action as string
 
+  if (action === 'webhook') return handleWebhook(req, res, db)
+  if (action === 'ical-import') return handleIcalImport(req, res, db)
+
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
+
   if (action === 'test')    return handleTest(req, res, db)
   if (action === 'push')    return handlePush(req, res, db)
-  if (action === 'webhook') return handleWebhook(req, res, db)
 
-  return res.status(400).json({ error: 'Unknown action. Use ?action=test|push|webhook' })
+  return res.status(400).json({ error: 'Unknown action. Use ?action=test|push|webhook|ical-import' })
 }

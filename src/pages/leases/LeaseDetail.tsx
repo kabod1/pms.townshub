@@ -9,8 +9,11 @@ import {
   FileText,
   AlertTriangle,
   Link2,
+  Upload,
+  Trash2,
+  ExternalLink,
 } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { DashboardLayout } from '@/layouts/DashboardLayout'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -96,6 +99,58 @@ export default function LeaseDetail() {
   const updateLease = useUpdateLease()
   const { data: schedule } = useRentSchedule(id ?? '')
   const [rentLinkLoading, setRentLinkLoading] = useState<string | null>(null)
+
+  // Documents
+  const qc = useQueryClient()
+  const [docTitle, setDocTitle] = useState('')
+  const [docUrl, setDocUrl] = useState('')
+  const [docType, setDocType] = useState('lease_agreement')
+  const [docExpiry, setDocExpiry] = useState('')
+  const [addingDoc, setAddingDoc] = useState(false)
+  const { tenant } = useAuthStore()
+  const { data: documents = [] } = useQuery({
+    queryKey: ['lease-docs', id, tenant?.id],
+    enabled: !!id && !!tenant,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('property_documents')
+        .select('*')
+        .eq('tenant_id', useAuthStore.getState().tenant!.id)
+        .or(`lease_id.eq.${id},unit_id.eq.${lease?.unit_id ?? '00000000-0000-0000-0000-000000000000'}`)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return data ?? []
+    },
+  })
+  const addDoc = useMutation({
+    mutationFn: async () => {
+      if (!docTitle || !docUrl) throw new Error('Title and URL are required')
+      const { error } = await supabase.from('property_documents').insert({
+        tenant_id:  tenant!.id,
+        lease_id:   id,
+        unit_id:    lease?.unit_id ?? null,
+        title:      docTitle,
+        file_url:   docUrl,
+        doc_type:   docType,
+        expiry_date: docExpiry || null,
+      })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['lease-docs', id] })
+      setDocTitle(''); setDocUrl(''); setDocExpiry(''); setAddingDoc(false)
+      toast.success('Document added')
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+  const deleteDoc = useMutation({
+    mutationFn: async (docId: string) => {
+      const { error } = await supabase.from('property_documents').delete().eq('id', docId)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['lease-docs', id] }),
+    onError: (e: Error) => toast.error(e.message),
+  })
 
   async function handleRentPaymentLink(scheduleId: string) {
     setRentLinkLoading(scheduleId)
@@ -455,16 +510,94 @@ export default function LeaseDetail() {
           </Card>
         )}
 
-        {/* Tab: Documents (placeholder) */}
+        {/* Tab: Documents */}
         {tab === 'documents' && (
           <Card>
-            <div className="text-center py-10">
-              <FileText size={36} className="mx-auto text-subtext mb-2" />
-              <p className="text-sm font-medium text-body">Documents</p>
-              <p className="text-xs text-subtext mt-1">
-                Document management coming soon.
-              </p>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold text-body">Documents</h2>
+              <Button size="sm" onClick={() => setAddingDoc((v) => !v)}>
+                <Upload size={14} /> Add Document
+              </Button>
             </div>
+
+            {addingDoc && (
+              <div className="mb-4 p-4 rounded-xl bg-light border border-mid space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <Input
+                    label="Title"
+                    value={docTitle}
+                    onChange={(e) => setDocTitle(e.target.value)}
+                    placeholder="e.g. Signed Lease Agreement"
+                  />
+                  <div>
+                    <label className="block text-xs font-medium text-subtext mb-1">Type</label>
+                    <select
+                      value={docType}
+                      onChange={(e) => setDocType(e.target.value)}
+                      className="w-full rounded-lg border border-mid bg-white px-3 py-2 text-sm text-body focus:border-blue focus:outline-none"
+                    >
+                      {['lease_agreement','addendum','id_copy','insurance','utility_bill','inspection_report','other'].map(t => (
+                        <option key={t} value={t}>{t.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <Input
+                  label="File URL (paste Google Drive / Dropbox link)"
+                  value={docUrl}
+                  onChange={(e) => setDocUrl(e.target.value)}
+                  placeholder="https://drive.google.com/..."
+                />
+                <Input
+                  label="Expiry Date (optional)"
+                  type="date"
+                  value={docExpiry}
+                  onChange={(e) => setDocExpiry(e.target.value)}
+                />
+                <div className="flex gap-2 justify-end">
+                  <Button variant="outline" size="sm" onClick={() => setAddingDoc(false)}>Cancel</Button>
+                  <Button size="sm" loading={addDoc.isPending} onClick={() => addDoc.mutate()} disabled={!docTitle || !docUrl}>
+                    Save Document
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {documents.length === 0 ? (
+              <div className="text-center py-10 text-subtext">
+                <FileText size={32} className="mx-auto mb-2 opacity-30" />
+                <p className="text-sm">No documents yet. Click "Add Document" to attach files.</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {documents.map((doc: any) => (
+                  <div key={doc.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-mid bg-white hover:bg-light transition-colors">
+                    <FileText size={16} className="text-subtext shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-body truncate">{doc.title}</p>
+                      <p className="text-xs text-subtext">
+                        {doc.doc_type?.replace(/_/g,' ')}
+                        {doc.expiry_date && ` · Expires ${formatDate(doc.expiry_date)}`}
+                      </p>
+                    </div>
+                    <a
+                      href={doc.file_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-800 shrink-0"
+                    >
+                      <ExternalLink size={15} />
+                    </a>
+                    <button
+                      onClick={() => deleteDoc.mutate(doc.id)}
+                      className="text-subtext hover:text-red-600 shrink-0 transition-colors"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </Card>
         )}
       </div>

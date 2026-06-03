@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useSearchParams, Link } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { CheckCircle, XCircle, Loader2, Hotel } from 'lucide-react'
 
 type State = 'loading' | 'success' | 'already_paid' | 'error'

@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import {
   ArrowLeft, Building2, Edit2, Trash2, Home,
   Maximize2, BedDouble, Bath, Car, CheckCircle2, X, Check,
+  ImagePlus, ExternalLink,
 } from 'lucide-react'
 import { DashboardLayout } from '@/layouts/DashboardLayout'
 import { Button } from '@/components/ui/Button'
@@ -37,6 +38,25 @@ export default function UnitDetail() {
   const [editMarketRent, setEditMarketRent] = useState<string>('')
   const [editNotes, setEditNotes] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [newPhotoUrl, setNewPhotoUrl] = useState('')
+  const [addingPhoto, setAddingPhoto] = useState(false)
+
+  async function addPhoto() {
+    if (!newPhotoUrl.trim()) return
+    setAddingPhoto(true)
+    try {
+      const current = unit?.photos ?? []
+      await updateUnit.mutateAsync({ id, photos: [...current, newPhotoUrl.trim()] })
+      setNewPhotoUrl('')
+    } finally {
+      setAddingPhoto(false)
+    }
+  }
+
+  async function removePhoto(photoUrl: string) {
+    const current = unit?.photos ?? []
+    await updateUnit.mutateAsync({ id, photos: current.filter((p) => p !== photoUrl) })
+  }
 
   if (isLoading) {
     return (
@@ -321,12 +341,49 @@ export default function UnitDetail() {
               </Card>
             )}
 
-            {/* Photos placeholder */}
+            {/* Photos */}
             <Card>
               <h3 className="text-sm font-semibold text-body mb-3">Photos</h3>
-              <div className="flex items-center justify-center h-24 rounded-lg bg-light text-subtext text-sm">
-                Photo gallery coming soon
+              {(unit.photos ?? []).length > 0 && (
+                <div className="grid grid-cols-3 gap-2 mb-3">
+                  {(unit.photos ?? []).map((url) => (
+                    <div key={url} className="relative group aspect-video rounded-lg overflow-hidden bg-light border border-mid">
+                      <img
+                        src={url}
+                        alt="Unit photo"
+                        className="w-full h-full object-cover"
+                        onError={(e) => { (e.target as HTMLImageElement).src = '' }}
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                        <a href={url} target="_blank" rel="noopener noreferrer" className="text-white hover:text-gold">
+                          <ExternalLink size={14} />
+                        </a>
+                        <button onClick={() => removePhoto(url)} className="text-white hover:text-red-400">
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <input
+                  type="url"
+                  value={newPhotoUrl}
+                  onChange={(e) => setNewPhotoUrl(e.target.value)}
+                  placeholder="Paste photo URL (https://...)"
+                  className="flex-1 rounded-lg border border-mid bg-white px-3 py-2 text-sm text-body placeholder:text-subtext focus:border-blue focus:outline-none focus:ring-1 focus:ring-blue"
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addPhoto() } }}
+                />
+                <button
+                  onClick={addPhoto}
+                  disabled={!newPhotoUrl.trim() || addingPhoto}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-navy text-white text-xs font-medium hover:bg-navy/90 disabled:opacity-40 transition-colors shrink-0"
+                >
+                  <ImagePlus size={14} /> Add
+                </button>
               </div>
+              <p className="text-xs text-subtext mt-1.5">Paste any public image URL (Cloudinary, Drive, Dropbox direct link, etc.)</p>
             </Card>
           </div>
         </div>
