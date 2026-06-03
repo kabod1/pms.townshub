@@ -7,7 +7,7 @@ import {
   Wrench, FileText, BarChart3, Settings, LogOut, Menu, X, ChevronLeft,
   Bell, Search, UtensilsCrossed, MessageSquare, Gift, Building2,
   MapPin, Star, ClipboardList, BarChart2, ChevronDown, ChevronRight, ShieldCheck, Megaphone,
-  Home, UserCheck, Key, DollarSign, Zap, ClipboardCheck, FolderOpen, PieChart, ArrowLeftRight, Brain,
+  Home, UserCheck, Key, DollarSign, Zap, ClipboardCheck, FolderOpen, PieChart, ArrowLeftRight, Brain, CreditCard,
 } from 'lucide-react'
 
 const SUPER_ADMIN_EMAILS = ['admin@townshub.cy']
@@ -56,6 +56,7 @@ const hotelNavItems: NavItem[] = [
   { to: '/loyalty', label: 'Loyalty', icon: <Gift size={18} /> },
   { to: '/accounts', label: 'Corporate', icon: <Building2 size={18} /> },
   { to: '/invoices', label: 'Invoices', icon: <FileText size={18} /> },
+  { to: '/payments', label: 'Payments', icon: <CreditCard size={18} /> },
   {
     to: '/reports', label: 'Reports', icon: <BarChart3 size={18} />,
     children: [

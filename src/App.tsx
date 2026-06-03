@@ -118,6 +118,9 @@ const OnboardingWizard = lazy(() => import('@/pages/onboarding/OnboardingWizard'
 const AdminDashboard = lazy(() => import('@/pages/admin/AdminDashboard'))
 const GuestChat = lazy(() => import('@/pages/GuestChat'))
 
+// Payments
+const HotelPayments = lazy(() => import('@/pages/payments/HotelPayments'))
+
 // Public
 const Landing = lazy(() => import('@/pages/Landing'))
 const PreCheckin = lazy(() => import('@/pages/PreCheckin'))
@@ -237,6 +240,7 @@ function AppRoutes() {
         <Route path="/settings" element={<HotelSettings />} />
         <Route path="/settings/users" element={<UserManagement />} />
         <Route path="/settings/billing" element={<BillingSettings />} />
+        <Route path="/payments" element={<HotelPayments />} />
         <Route path="/settings/branding" element={<BrandingSettings />} />
         <Route path="/settings/packages" element={<Packages />} />
         <Route path="/settings/promotions" element={<Promotions />} />

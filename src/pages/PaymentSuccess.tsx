@@ -8,29 +8,30 @@ export default function PaymentSuccess() {
   const [params] = useSearchParams()
   const sessionId = params.get('session_id') ?? ''
   const ref       = params.get('ref') ?? ''
-  const type      = params.get('type') ?? ''  // 'invoice' | 'rent'
+  const type      = params.get('type') ?? ''  // 'booking' | 'rent'
 
   const [state,  setState]  = useState<State>('loading')
   const [amount, setAmount] = useState<number | null>(null)
   const [error,  setError]  = useState('')
 
   useEffect(() => {
-    if (!sessionId || !ref || !type) {
+    if (!sessionId || !ref) {
       setState('error')
       setError('Invalid payment link — missing parameters.')
       return
     }
 
-    fetch(`/api/stripe?action=confirm-payment&session_id=${sessionId}&ref=${ref}&type=${type}`)
+    const endpoint = type === 'rent'
+      ? `/api/stripe?action=confirm-rent&session_id=${sessionId}&ref=${ref}`
+      : `/api/stripe?action=confirm-booking&session_id=${sessionId}&ref=${ref}`
+
+    fetch(endpoint)
       .then(async (res) => {
         const body = await res.json()
         if (!res.ok) throw new Error(body.error ?? 'Payment confirmation failed')
-        if (body.alreadyPaid) {
-          setState('already_paid')
-        } else {
-          setState('success')
-          setAmount(body.amount ?? null)
-        }
+        if (body.alreadyPaid) { setState('already_paid'); return }
+        setState('success')
+        setAmount(body.amount ?? null)
       })
       .catch((err) => {
         setState('error')
@@ -38,11 +39,10 @@ export default function PaymentSuccess() {
       })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const label = type === 'rent' ? 'rent payment' : 'invoice'
+  const label = type === 'rent' ? 'rent payment' : 'booking'
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
-      {/* Logo */}
       <div className="mb-8 flex items-center gap-2">
         <div className="w-10 h-10 rounded-xl bg-[#0F2138] flex items-center justify-center">
           <Hotel size={20} className="text-white" />
@@ -63,15 +63,13 @@ export default function PaymentSuccess() {
             <CheckCircle size={48} className="mx-auto text-green-500" />
             <h1 className="text-xl font-bold text-gray-900">Payment confirmed!</h1>
             {amount !== null && (
-              <p className="text-3xl font-black text-[#0F2138]">
-                €{amount.toFixed(2)}
-              </p>
+              <p className="text-3xl font-black text-[#0F2138]">€{amount.toFixed(2)}</p>
             )}
             <p className="text-sm text-gray-500">
-              Your {label} has been paid and recorded. Thank you!
+              Your {label} has been paid. Thank you!
             </p>
             <p className="text-xs text-gray-400">
-              You will receive a confirmation email from Stripe shortly.
+              A receipt from Stripe will be emailed to you shortly.
             </p>
           </>
         )}
@@ -81,7 +79,7 @@ export default function PaymentSuccess() {
             <CheckCircle size={48} className="mx-auto text-blue-400" />
             <h1 className="text-xl font-bold text-gray-900">Already paid</h1>
             <p className="text-sm text-gray-500">
-              This {label} was already marked as paid. No charge was made.
+              This {label} was already recorded as paid. No charge was made.
             </p>
           </>
         )}
@@ -92,14 +90,16 @@ export default function PaymentSuccess() {
             <h1 className="text-xl font-bold text-gray-900">Something went wrong</h1>
             <p className="text-sm text-gray-500">{error}</p>
             <p className="text-xs text-gray-400">
-              If you were charged, please contact the property and reference your Stripe receipt.
+              If you were charged, contact the property and reference your Stripe receipt.
             </p>
           </>
         )}
       </div>
 
       <p className="mt-6 text-xs text-gray-400">
-        Powered by <a href="https://pms.townshub.com" className="underline">TownsHub PMS</a> · Payments processed by Stripe
+        Powered by{' '}
+        <a href="https://pms.townshub.com" className="underline">TownsHub PMS</a>
+        {' '}· Payments secured by Stripe
       </p>
     </div>
   )
@@ -118,7 +118,7 @@ export function PaymentCancelled() {
         <XCircle size={48} className="mx-auto text-gray-300" />
         <h1 className="text-xl font-bold text-gray-900">Payment cancelled</h1>
         <p className="text-sm text-gray-500">
-          You cancelled the payment. No charge was made. Please contact the property if you need a new payment link.
+          You cancelled the payment. No charge was made. Contact the property for a new payment link.
         </p>
       </div>
     </div>

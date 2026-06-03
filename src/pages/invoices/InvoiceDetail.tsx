@@ -123,29 +123,30 @@ export default function InvoiceDetail() {
     }
   }
 
+  function getToken(): string | null {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)
+      if (k?.startsWith('sb-') && k.endsWith('-auth-token')) {
+        const raw = localStorage.getItem(k)
+        return raw ? JSON.parse(raw)?.access_token : null
+      }
+    }
+    return null
+  }
+
   async function handleSendPaymentLink() {
     if (!invoice) return
     setLinkLoading(true)
     try {
-      const token = (() => {
-        for (let i = 0; i < localStorage.length; i++) {
-          const k = localStorage.key(i)
-          if (k?.startsWith('sb-') && k.endsWith('-auth-token')) {
-            const raw = localStorage.getItem(k)
-            return raw ? JSON.parse(raw)?.access_token : null
-          }
-        }
-        return null
-      })()
-      const res = await fetch('/api/stripe?action=invoice-checkout', {
+      const res = await fetch('/api/stripe?action=booking-checkout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ invoiceId: invoice.id }),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+        body: JSON.stringify({ bookingId: invoice.booking_id }),
       })
       const body = await res.json()
       if (!res.ok) throw new Error(body.error ?? 'Failed to generate payment link')
       await navigator.clipboard.writeText(body.url)
-      toast.success('Payment link copied to clipboard! Send it to your guest.')
+      toast.success('Payment link copied — send it to your guest via WhatsApp or email.')
     } catch (err: any) {
       toast.error(err.message ?? 'Could not create payment link')
     } finally {

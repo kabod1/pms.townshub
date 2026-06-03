@@ -5,7 +5,7 @@ import {
   ShieldCheck, Globe, Activity, RefreshCw, ArrowUpRight,
   Home, Key, DollarSign, AlertTriangle, Hotel,
   Eye, MousePointerClick, Smartphone, Monitor, Tablet,
-  BarChart2, Lock, Zap, CheckCircle2, MapPin,
+  BarChart2, Lock, Zap, CheckCircle2, MapPin, CreditCard,
 } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -124,14 +124,51 @@ export default function AdminDashboard() {
   const [error, setError] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [search, setSearch] = useState('')
-  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'security' | 'tenants' | 'users'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'security' | 'tenants' | 'users' | 'payments'>('overview')
+  const [commissionPct, setCommissionPct] = useState<number | null>(null)
+  const [commissionInput, setCommissionInput] = useState('')
+  const [savingCommission, setSavingCommission] = useState(false)
+  const [paymentStats, setPaymentStats] = useState<any>(null)
 
   const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(user?.email ?? '')
 
   useEffect(() => {
     if (!isSuperAdmin) { navigate('/dashboard', { replace: true }); return }
     fetchData()
+    loadPaymentData()
   }, [isSuperAdmin])
+
+  async function loadPaymentData() {
+    try {
+      const token = await getToken()
+      const [commRes, statsRes] = await Promise.all([
+        fetch('/api/stripe?action=admin-commission', { headers: { Authorization: `Bearer ${token}` } }),
+        fetch('/api/stripe?action=admin-stats', { headers: { Authorization: `Bearer ${token}` } }),
+      ])
+      if (commRes.ok) {
+        const d = await commRes.json()
+        setCommissionPct(d.commission_pct)
+        setCommissionInput(String(d.commission_pct))
+      }
+      if (statsRes.ok) setPaymentStats(await statsRes.json())
+    } catch {}
+  }
+
+  async function saveCommission() {
+    const pct = parseFloat(commissionInput)
+    if (isNaN(pct) || pct < 0 || pct > 100) return
+    setSavingCommission(true)
+    try {
+      const token = await getToken()
+      const res = await fetch('/api/stripe?action=admin-commission', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ commission_pct: pct }),
+      })
+      const d = await res.json()
+      if (res.ok) { setCommissionPct(d.commission_pct) }
+    } catch {} finally { setSavingCommission(false) }
+  }
 
   async function getToken() {
     const { data: { session } } = await supabase.auth.getSession()
@@ -185,6 +222,7 @@ export default function AdminDashboard() {
     { id: 'analytics', label: 'Visitor Analytics', icon: <Eye size={14} /> },
     { id: 'security',  label: 'Security',   icon: <ShieldCheck size={14} /> },
     { id: 'tenants',   label: 'Tenants',    icon: <Building2 size={14} /> },
+    { id: 'payments',  label: 'Payments',   icon: <CreditCard size={14} /> },
   ]
 
   return (
@@ -848,6 +886,116 @@ export default function AdminDashboard() {
                 </table>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* ── Payments tab ──────────────────────────────────────────────── */}
+        {activeTab === 'payments' && (
+          <div className="space-y-6">
+
+            {/* Commission setting */}
+            <div className="bg-white rounded-xl shadow-sm ring-1 ring-mid p-5">
+              <h2 className="font-semibold text-body mb-1">Platform Commission</h2>
+              <p className="text-xs text-subtext mb-4">
+                Percentage automatically deducted from every booking payment before transferring to the hotel.
+              </p>
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={0.5}
+                    value={commissionInput}
+                    onChange={(e) => setCommissionInput(e.target.value)}
+                    className="w-24 rounded-lg border border-mid px-3 py-2 text-sm text-body pr-8 focus:outline-none focus:ring-2 focus:ring-gold"
+                  />
+                  <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-sm text-subtext">%</span>
+                </div>
+                <button
+                  onClick={saveCommission}
+                  disabled={savingCommission}
+                  className="px-4 py-2 rounded-lg bg-navy text-white text-sm font-semibold hover:bg-navy/90 disabled:opacity-50 transition-colors"
+                >
+                  {savingCommission ? 'Saving…' : 'Save'}
+                </button>
+                {commissionPct !== null && (
+                  <span className="text-xs text-subtext">
+                    Current: <strong>{commissionPct}%</strong>
+                    {' '}· Example: €100 booking → €{(100 - commissionPct).toFixed(0)} to hotel, €{commissionPct.toFixed(0)} to platform
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Payment stats */}
+            {paymentStats && (
+              <>
+                <div className="grid grid-cols-4 gap-4">
+                  {[
+                    { label: 'Total Revenue Processed', value: formatCurrency(paymentStats.totalRevenue), color: 'text-green-600' },
+                    { label: 'Platform Commission Earned', value: formatCurrency(paymentStats.totalCommission), color: 'text-navy' },
+                    { label: 'Hotels Connected', value: paymentStats.connectedHotels, color: 'text-blue-600' },
+                    { label: 'Hotels Verified', value: paymentStats.verifiedHotels, color: 'text-green-600' },
+                  ].map((s) => (
+                    <div key={s.label} className="bg-white rounded-xl shadow-sm ring-1 ring-mid p-4">
+                      <p className="text-xs text-subtext mb-1">{s.label}</p>
+                      <p className={`text-2xl font-black ${s.color}`}>{s.value}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Connected hotels table */}
+                <div className="bg-white rounded-xl shadow-sm ring-1 ring-mid overflow-hidden">
+                  <div className="px-5 py-4 border-b border-mid">
+                    <h2 className="font-semibold text-body">Hotel Stripe Connect Status</h2>
+                    <p className="text-xs text-subtext mt-0.5">Hotels cannot accept payments until their Stripe account is connected and verified.</p>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-mid bg-light text-left">
+                          <th className="px-4 py-3 font-medium text-subtext">Hotel</th>
+                          <th className="px-4 py-3 font-medium text-subtext text-center">Connected</th>
+                          <th className="px-4 py-3 font-medium text-subtext text-center">Verification</th>
+                          <th className="px-4 py-3 font-medium text-subtext text-center">Charges</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-mid">
+                        {(paymentStats.hotels ?? []).map((h: any) => (
+                          <tr key={h.id} className="hover:bg-light/50">
+                            <td className="px-4 py-3 font-medium text-body">{h.name}</td>
+                            <td className="px-4 py-3 text-center">
+                              {h.stripe_connected
+                                ? <span className="text-green-600 text-xs font-medium">✅ Yes</span>
+                                : <span className="text-gray-400 text-xs">Not connected</span>}
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${
+                                h.stripe_verification_status === 'verified'   ? 'bg-green-100 text-green-700' :
+                                h.stripe_verification_status === 'pending'    ? 'bg-amber-100 text-amber-700' :
+                                h.stripe_verification_status === 'restricted' ? 'bg-red-100 text-red-700' :
+                                'bg-gray-100 text-gray-500'
+                              }`}>
+                                {h.stripe_verification_status ?? 'unverified'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              {h.stripe_charges_enabled
+                                ? <span className="text-green-600 text-xs font-medium">Enabled</span>
+                                : <span className="text-gray-400 text-xs">Disabled</span>}
+                            </td>
+                          </tr>
+                        ))}
+                        {(paymentStats.hotels ?? []).length === 0 && (
+                          <tr><td colSpan={4} className="px-4 py-8 text-center text-subtext text-sm">No hotels registered.</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         )}
 
