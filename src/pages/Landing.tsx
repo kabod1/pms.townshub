@@ -67,8 +67,8 @@ const FEATURES = [
   },
   {
     icon: MessageSquare,
-    title: 'AI Concierge & Chat',
-    desc: 'GPT-powered guest chat widget, staff AI assistant, automated upsell suggestions and guest satisfaction surveys.',
+    title: 'Smart Concierge & Chat',
+    desc: 'Automated guest chat widget, digital staff assistant, personalised upsell suggestions and guest satisfaction surveys.',
     color: '#F97316',
   },
   {
@@ -125,7 +125,7 @@ const PRICING: PricingPlan[] = [
       'Advanced Analytics',
       'Channel Manager (SiteMinder)',
       'Multi-currency',
-      'AI concierge & chat',
+      'Smart concierge & chat',
       'Priority support',
     ],
   },
@@ -418,7 +418,7 @@ export default function Landing() {
                 style={{ background: 'rgba(212,168,67,0.15)', color: GOLD, border: `1px solid rgba(212,168,67,0.3)` }}
               >
                 <Zap size={12} />
-                Now with AI concierge & 16 languages
+                Smart concierge · 16 languages · GDPR ready
               </div>
 
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-white leading-tight mb-6">
@@ -428,7 +428,7 @@ export default function Landing() {
               </h1>
 
               <p className="text-lg text-white/70 mb-8 max-w-lg leading-relaxed">
-                Reservations, guests, payments, channel manager, AI concierge, property
+                Reservations, guests, payments, channel manager, smart concierge, property
                 management and GDPR compliance — all in one beautifully simple platform.
               </p>
 
@@ -1014,12 +1014,12 @@ export default function Landing() {
                 <ul className="space-y-4">
                   {[
                     'Demo hotel "Limassol Grand" with 15 rooms',
-                    '30+ pre-loaded bookings across all statuses',
-                    '50 guest profiles with history',
+                    '12 pre-loaded bookings across all statuses',
+                    '12 guest profiles with stay history',
                     'Invoices, payments and revenue data',
-                    'Staff users: admin, manager, front desk, housekeeping',
                     'Reports & executive dashboard with real metrics',
-                    'AI concierge and marketing hub',
+                    'Smart concierge and marketing hub',
+                    'Housekeeping task board',
                     'Channel manager demo mode',
                   ].map((item) => (
                     <li key={item} className="flex items-start gap-3 text-sm">
