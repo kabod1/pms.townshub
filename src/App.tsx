@@ -123,6 +123,10 @@ const Landing = lazy(() => import('@/pages/Landing'))
 const PreCheckin = lazy(() => import('@/pages/PreCheckin'))
 const PublicMenu = lazy(() => import('@/pages/PublicMenu'))
 const PrivacyPolicy = lazy(() => import('@/pages/legal/PrivacyPolicy'))
+const PaymentSuccess  = lazy(() => import('@/pages/PaymentSuccess'))
+const PaymentCancelled = lazy(() =>
+  import('@/pages/PaymentSuccess').then((m) => ({ default: m.PaymentCancelled }))
+)
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -255,6 +259,8 @@ function AppRoutes() {
         <Route path="/menu/:slug/:tableToken" element={<PublicMenu />} />
         <Route path="/survey/:ref" element={<PublicSurvey />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
+        <Route path="/payment/success" element={<PaymentSuccess />} />
+        <Route path="/payment/cancelled" element={<PaymentCancelled />} />
 
         {/* Catch-all */}
         <Route path="*" element={<Navigate to="/" replace />} />

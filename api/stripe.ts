@@ -1,18 +1,19 @@
 /**
  * Stripe API handler
  *
- * POST /api/stripe?action=checkout  — Create Stripe Checkout session for subscription upgrade
- * POST /api/stripe?action=portal    — Create Stripe Customer Portal session
- * POST /api/stripe?action=webhook   — Handle Stripe webhook events (raw body required)
+ * ── Platform billing (TownsHub subscriptions) ────────────────────────────────
+ * POST /api/stripe?action=checkout       — Create Checkout session for plan upgrade
+ * POST /api/stripe?action=portal         — Create Stripe Customer Portal session
+ * POST /api/stripe?action=webhook        — Handle Stripe webhook events (raw body)
  *
- * Required environment variables:
- *   STRIPE_SECRET_KEY         — Stripe secret key (sk_live_... or sk_test_...)
- *   STRIPE_WEBHOOK_SECRET     — Webhook signing secret (whsec_...)
- *   STRIPE_PRICE_ESSENTIAL    — Stripe Price ID for the Essential plan
- *   STRIPE_PRICE_PROFESSIONAL — Stripe Price ID for the Professional plan
- *   STRIPE_PRICE_ENTERPRISE   — Stripe Price ID for the Enterprise plan
- *   SUPABASE_URL / VITE_SUPABASE_URL
- *   SUPABASE_SERVICE_ROLE_KEY
+ * ── Guest / tenant payments (per-hotel Stripe keys) ──────────────────────────
+ * POST /api/stripe?action=invoice-checkout  — Create Checkout for a hotel invoice
+ * POST /api/stripe?action=rent-checkout     — Create Checkout for a rent schedule item
+ * GET  /api/stripe?action=confirm-payment   — Verify session + record payment (success redirect)
+ *
+ * Required env vars for guest/tenant payments (set per-hotel in Settings → Payments):
+ *   Stored on tenants.stripe_payment_sk  (hotel's own Stripe secret key)
+ *   Stored on tenants.stripe_payment_pk  (hotel's own Stripe publishable key)
  */
 import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
@@ -63,6 +64,263 @@ function tierFromSubscription(subscription: Stripe.Subscription): string | null 
   return null
 }
 
+// ── Guest invoice checkout ────────────────────────────────────────────────────
+
+async function handleInvoiceCheckout(req: any, res: any, db: ReturnType<typeof getServiceClient>, tenantId: string) {
+  const { invoiceId } = req.body ?? {}
+  if (!invoiceId) return res.status(400).json({ error: 'invoiceId is required' })
+
+  // Load invoice + booking + guest
+  const { data: inv, error: invErr } = await db
+    .from('invoices')
+    .select('id, invoice_number, total, status, stripe_session_id, stripe_payment_url, booking:bookings(guest:guests(first_name, last_name, email))')
+    .eq('id', invoiceId)
+    .eq('tenant_id', tenantId)
+    .single()
+  if (invErr || !inv) return res.status(404).json({ error: 'Invoice not found' })
+  if (inv.status === 'paid') return res.status(400).json({ error: 'Invoice is already paid' })
+
+  // If a valid session URL already exists, return it
+  if (inv.stripe_payment_url && inv.stripe_session_id) {
+    return res.json({ url: inv.stripe_payment_url, cached: true })
+  }
+
+  // Load tenant's own Stripe secret key
+  const { data: tenant, error: tErr } = await db
+    .from('tenants')
+    .select('name, stripe_payment_sk')
+    .eq('id', tenantId)
+    .single()
+  if (tErr || !tenant) return res.status(404).json({ error: 'Tenant not found' })
+  if (!tenant.stripe_payment_sk) {
+    return res.status(400).json({
+      error: 'Stripe payment keys not configured. Go to Settings → Payments to add your Stripe keys.',
+    })
+  }
+
+  const stripe = new (await import('stripe')).default(tenant.stripe_payment_sk, {
+    apiVersion: '2024-06-20',
+    typescript: true,
+  })
+
+  const guest = (inv as any).booking?.guest
+  const guestEmail = guest?.email ?? undefined
+  const origin = req.headers.origin ?? 'https://pms.townshub.com'
+  const successUrl = `${origin}/payment/success?type=invoice&ref=${invoiceId}&session_id={CHECKOUT_SESSION_ID}`
+  const cancelUrl  = `${origin}/payment/cancelled`
+
+  const session = await stripe.checkout.sessions.create({
+    mode: 'payment',
+    payment_method_types: ['card'],
+    customer_email: guestEmail,
+    line_items: [{
+      quantity: 1,
+      price_data: {
+        currency: 'eur',
+        unit_amount: Math.round((inv as any).total * 100),
+        product_data: {
+          name: `Invoice ${(inv as any).invoice_number}`,
+          description: `Payment for ${tenant.name}`,
+        },
+      },
+    }],
+    success_url: successUrl,
+    cancel_url:  cancelUrl,
+    metadata: { invoice_id: invoiceId, tenant_id: tenantId, type: 'invoice' },
+  })
+
+  // Cache the URL on the invoice row
+  await db.from('invoices').update({
+    stripe_session_id:  session.id,
+    stripe_payment_url: session.url,
+  }).eq('id', invoiceId)
+
+  return res.json({ url: session.url })
+}
+
+// ── Rent schedule checkout ────────────────────────────────────────────────────
+
+async function handleRentCheckout(req: any, res: any, db: ReturnType<typeof getServiceClient>, tenantId: string) {
+  const { rentScheduleId } = req.body ?? {}
+  if (!rentScheduleId) return res.status(400).json({ error: 'rentScheduleId is required' })
+
+  const { data: row, error: rowErr } = await db
+    .from('rent_schedule')
+    .select('id, amount, balance, status, stripe_session_id, stripe_payment_url, lease:leases(property_tenant:property_tenants(first_name, last_name, email), unit:units(unit_number))')
+    .eq('id', rentScheduleId)
+    .eq('tenant_id', tenantId)
+    .single()
+  if (rowErr || !row) return res.status(404).json({ error: 'Rent schedule item not found' })
+  if ((row as any).status === 'paid') return res.status(400).json({ error: 'This rent is already paid' })
+
+  if ((row as any).stripe_payment_url && (row as any).stripe_session_id) {
+    return res.json({ url: (row as any).stripe_payment_url, cached: true })
+  }
+
+  const { data: tenant, error: tErr } = await db
+    .from('tenants')
+    .select('name, stripe_payment_sk')
+    .eq('id', tenantId)
+    .single()
+  if (tErr || !tenant) return res.status(404).json({ error: 'Tenant not found' })
+  if (!tenant.stripe_payment_sk) {
+    return res.status(400).json({
+      error: 'Stripe payment keys not configured. Go to Settings → Payments to add your Stripe keys.',
+    })
+  }
+
+  const stripe = new (await import('stripe')).default(tenant.stripe_payment_sk, {
+    apiVersion: '2024-06-20',
+    typescript: true,
+  })
+
+  const lease = (row as any).lease
+  const renter = lease?.property_tenant
+  const unitNumber = lease?.unit?.unit_number ?? 'Unit'
+  const amountDue = (row as any).balance ?? (row as any).amount
+  const origin = req.headers.origin ?? 'https://pms.townshub.com'
+
+  const session = await stripe.checkout.sessions.create({
+    mode: 'payment',
+    payment_method_types: ['card'],
+    customer_email: renter?.email ?? undefined,
+    line_items: [{
+      quantity: 1,
+      price_data: {
+        currency: 'eur',
+        unit_amount: Math.round(amountDue * 100),
+        product_data: {
+          name: `Rent — ${unitNumber}`,
+          description: `Rent payment for ${tenant.name}`,
+        },
+      },
+    }],
+    success_url: `${origin}/payment/success?type=rent&ref=${rentScheduleId}&session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url:  `${origin}/payment/cancelled`,
+    metadata: { rent_schedule_id: rentScheduleId, tenant_id: tenantId, type: 'rent' },
+  })
+
+  await db.from('rent_schedule').update({
+    stripe_session_id:  session.id,
+    stripe_payment_url: session.url,
+  }).eq('id', rentScheduleId)
+
+  return res.json({ url: session.url })
+}
+
+// ── Confirm payment (called from success redirect) ────────────────────────────
+
+async function handleConfirmPayment(req: any, res: any) {
+  const { session_id, ref, type } = req.query as Record<string, string>
+  if (!session_id || !ref || !type) {
+    return res.status(400).json({ error: 'session_id, ref, and type are required' })
+  }
+
+  const db = getServiceClient()
+
+  if (type === 'invoice') {
+    const { data: inv, error: invErr } = await db
+      .from('invoices')
+      .select('id, total, status, tenant_id, stripe_session_id, booking_id')
+      .eq('id', ref)
+      .single()
+    if (invErr || !inv) return res.status(404).json({ error: 'Invoice not found' })
+    if ((inv as any).status === 'paid') {
+      return res.json({ ok: true, alreadyPaid: true, type: 'invoice' })
+    }
+    if ((inv as any).stripe_session_id !== session_id) {
+      return res.status(400).json({ error: 'Session ID mismatch' })
+    }
+
+    const { data: tenant } = await db
+      .from('tenants')
+      .select('stripe_payment_sk')
+      .eq('id', (inv as any).tenant_id)
+      .single()
+    if (!tenant?.stripe_payment_sk) return res.status(400).json({ error: 'Stripe not configured' })
+
+    const stripe = new (await import('stripe')).default(tenant.stripe_payment_sk, {
+      apiVersion: '2024-06-20',
+      typescript: true,
+    })
+    const session = await stripe.checkout.sessions.retrieve(session_id)
+    if (session.payment_status !== 'paid') {
+      return res.status(400).json({ error: 'Payment not completed' })
+    }
+
+    const amount = (inv as any).total
+    await db.from('payments').insert({
+      tenant_id:  (inv as any).tenant_id,
+      booking_id: (inv as any).booking_id,
+      amount,
+      method:    'stripe',
+      status:    'completed',
+      reference: session.payment_intent as string ?? session_id,
+      notes:     'Online payment via Stripe',
+    })
+    await db.from('invoices').update({ status: 'paid', stripe_payment_url: null }).eq('id', ref)
+
+    return res.json({ ok: true, type: 'invoice', amount })
+  }
+
+  if (type === 'rent') {
+    const { data: row, error: rowErr } = await db
+      .from('rent_schedule')
+      .select('id, amount, balance, paid_amount, status, tenant_id, lease_id, stripe_session_id')
+      .eq('id', ref)
+      .single()
+    if (rowErr || !row) return res.status(404).json({ error: 'Rent schedule item not found' })
+    if ((row as any).status === 'paid') {
+      return res.json({ ok: true, alreadyPaid: true, type: 'rent' })
+    }
+    if ((row as any).stripe_session_id !== session_id) {
+      return res.status(400).json({ error: 'Session ID mismatch' })
+    }
+
+    const { data: tenant } = await db
+      .from('tenants')
+      .select('stripe_payment_sk')
+      .eq('id', (row as any).tenant_id)
+      .single()
+    if (!tenant?.stripe_payment_sk) return res.status(400).json({ error: 'Stripe not configured' })
+
+    const stripe = new (await import('stripe')).default(tenant.stripe_payment_sk, {
+      apiVersion: '2024-06-20',
+      typescript: true,
+    })
+    const session = await stripe.checkout.sessions.retrieve(session_id)
+    if (session.payment_status !== 'paid') {
+      return res.status(400).json({ error: 'Payment not completed' })
+    }
+
+    const amountPaid = (row as any).balance ?? (row as any).amount
+    const newPaid    = ((row as any).paid_amount ?? 0) + amountPaid
+    const today      = new Date().toISOString().slice(0, 10)
+
+    await db.from('property_payments').insert({
+      tenant_id:          (row as any).tenant_id,
+      lease_id:           (row as any).lease_id,
+      rent_schedule_id:   ref,
+      amount:             amountPaid,
+      payment_type:       'rent',
+      method:             'stripe',
+      reference:          session.payment_intent as string ?? session_id,
+      payment_date:       today,
+      notes:              'Online payment via Stripe',
+    })
+    await db.from('rent_schedule').update({
+      paid_amount:        newPaid,
+      status:             'paid',
+      paid_date:          today,
+      stripe_payment_url: null,
+    }).eq('id', ref)
+
+    return res.json({ ok: true, type: 'rent', amount: amountPaid })
+  }
+
+  return res.status(400).json({ error: 'Unknown type. Use type=invoice or type=rent' })
+}
+
 // ── main handler ─────────────────────────────────────────────────────────────
 
 export default async function handler(req: any, res: any) {
@@ -71,35 +329,43 @@ export default async function handler(req: any, res: any) {
 
   const action = req.query.action as string | undefined
 
-  // Webhook does NOT need auth — it uses signature verification instead
-  if (action === 'webhook') {
-    return handleWebhook(req, res)
-  }
+  // Webhook — uses Stripe signature, no auth
+  if (action === 'webhook') return handleWebhook(req, res)
 
-  // All other actions require POST + auth
+  // Payment confirm — GET, no auth (called from Stripe redirect)
+  if (action === 'confirm-payment') return handleConfirmPayment(req, res)
+
+  // All other actions require POST
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  // Rate limit: 20 billing requests per minute per IP
+  // Rate limit
   const ip = getClientIp(req)
   const rl = rateLimit(`stripe:${ip}`, 20, 60_000)
-  if (!rl.allowed) {
-    return res.status(429).json({ error: 'Too many requests' })
+  if (!rl.allowed) return res.status(429).json({ error: 'Too many requests' })
+
+  const db = getServiceClient()
+
+  // Guest/rent checkout — auth required (staff creates the link)
+  if (action === 'invoice-checkout' || action === 'rent-checkout') {
+    const { tenantId } = await verifyTenantToken(req, db)
+    if (!tenantId) return res.status(401).json({ error: 'Unauthorised' })
+    if (action === 'invoice-checkout') return handleInvoiceCheckout(req, res, db, tenantId)
+    return handleRentCheckout(req, res, db, tenantId)
   }
 
-  // Verify the caller is an authenticated tenant member
-  const db = getServiceClient()
+  // Platform billing — auth required
   const { tenantId } = await verifyTenantToken(req, db)
-  if (!tenantId) {
-    return res.status(401).json({ error: 'Unauthorised' })
-  }
+  if (!tenantId) return res.status(401).json({ error: 'Unauthorised' })
 
   switch (action) {
     case 'checkout': return handleCheckout(req, res, db, tenantId)
     case 'portal':   return handlePortal(req, res, db, tenantId)
     default:
-      return res.status(400).json({ error: 'Unknown action. Use ?action=checkout|portal|webhook' })
+      return res.status(400).json({
+        error: 'Unknown action. Use ?action=checkout|portal|webhook|invoice-checkout|rent-checkout|confirm-payment',
+      })
   }
 }
 

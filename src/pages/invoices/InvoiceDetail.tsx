@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Printer, Download, PlusCircle, CheckCircle } from 'lucide-react'
+import { ArrowLeft, Printer, Download, PlusCircle, CheckCircle, Link2, Copy } from 'lucide-react'
 import { DashboardLayout } from '@/layouts/DashboardLayout'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
@@ -43,6 +43,7 @@ export default function InvoiceDetail() {
   const [payRef, setPayRef] = useState('')
   const [payNote, setPayNote] = useState('')
   const [pdfLoading, setPdfLoading] = useState(false)
+  const [linkLoading, setLinkLoading] = useState(false)
 
   const { data: invoice, isLoading } = useQuery<Invoice>({
     queryKey: ['invoice', id],
@@ -122,6 +123,36 @@ export default function InvoiceDetail() {
     }
   }
 
+  async function handleSendPaymentLink() {
+    if (!invoice) return
+    setLinkLoading(true)
+    try {
+      const token = (() => {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i)
+          if (k?.startsWith('sb-') && k.endsWith('-auth-token')) {
+            const raw = localStorage.getItem(k)
+            return raw ? JSON.parse(raw)?.access_token : null
+          }
+        }
+        return null
+      })()
+      const res = await fetch('/api/stripe?action=invoice-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ invoiceId: invoice.id }),
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error ?? 'Failed to generate payment link')
+      await navigator.clipboard.writeText(body.url)
+      toast.success('Payment link copied to clipboard! Send it to your guest.')
+    } catch (err: any) {
+      toast.error(err.message ?? 'Could not create payment link')
+    } finally {
+      setLinkLoading(false)
+    }
+  }
+
   if (isLoading) return <DashboardLayout><LoadingSpinner fullPage /></DashboardLayout>
   if (!invoice) return <DashboardLayout><p className="text-subtext">Invoice not found.</p></DashboardLayout>
 
@@ -143,15 +174,26 @@ export default function InvoiceDetail() {
           <div className="flex-1" />
           <div className="flex gap-2 flex-wrap">
             {invoice.status !== 'paid' && invoice.status !== 'cancelled' && (
-              <Button
-                size="sm"
-                onClick={() => {
-                  setPayAmount(String(invoice.total))
-                  setShowPayModal(true)
-                }}
-              >
-                <PlusCircle size={16} /> Record Payment
-              </Button>
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleSendPaymentLink}
+                  loading={linkLoading}
+                  title="Generate a Stripe payment link and copy it to clipboard"
+                >
+                  <Link2 size={15} /> Payment Link
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    setPayAmount(String(invoice.total))
+                    setShowPayModal(true)
+                  }}
+                >
+                  <PlusCircle size={16} /> Record Payment
+                </Button>
+              </>
             )}
             {invoice.status === 'paid' && (
               <span className="flex items-center gap-1 text-sm font-medium text-green-700">

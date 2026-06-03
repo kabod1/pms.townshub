@@ -8,6 +8,7 @@ import {
   DollarSign,
   FileText,
   AlertTriangle,
+  Link2,
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { DashboardLayout } from '@/layouts/DashboardLayout'
@@ -23,6 +24,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
 import { formatDate } from '@/lib/utils'
 import type { RentSchedule } from '@/types/database'
+import toast from 'react-hot-toast'
 
 // ─── Rent Schedule sub-query ─────────────────────────────────────────────────
 
@@ -93,6 +95,36 @@ export default function LeaseDetail() {
   const activateLease = useActivateLease()
   const updateLease = useUpdateLease()
   const { data: schedule } = useRentSchedule(id ?? '')
+  const [rentLinkLoading, setRentLinkLoading] = useState<string | null>(null)
+
+  async function handleRentPaymentLink(scheduleId: string) {
+    setRentLinkLoading(scheduleId)
+    try {
+      const token = (() => {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i)
+          if (k?.startsWith('sb-') && k.endsWith('-auth-token')) {
+            const raw = localStorage.getItem(k)
+            return raw ? JSON.parse(raw)?.access_token : null
+          }
+        }
+        return null
+      })()
+      const res = await fetch('/api/stripe?action=rent-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ rentScheduleId: scheduleId }),
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error ?? 'Failed to generate payment link')
+      await navigator.clipboard.writeText(body.url)
+      toast.success('Rent payment link copied! Send it to your tenant.')
+    } catch (err: any) {
+      toast.error(err.message ?? 'Could not create payment link')
+    } finally {
+      setRentLinkLoading(null)
+    }
+  }
 
   async function handleActivate() {
     if (!id) return
@@ -368,9 +400,10 @@ export default function LeaseDetail() {
                       <th className="text-right py-2 pr-4 text-xs font-semibold text-subtext">
                         Balance
                       </th>
-                      <th className="text-center py-2 text-xs font-semibold text-subtext">
+                      <th className="text-center py-2 pr-4 text-xs font-semibold text-subtext">
                         Status
                       </th>
+                      <th className="py-2 text-xs font-semibold text-subtext" />
                     </tr>
                   </thead>
                   <tbody>
@@ -391,13 +424,27 @@ export default function LeaseDetail() {
                         <td className="py-2.5 pr-4 text-right text-subtext">
                           {row.balance.toLocaleString()}
                         </td>
-                        <td className="py-2.5 text-center">
+                        <td className="py-2.5 pr-4 text-center">
                           <Badge
                             label={row.status.charAt(0).toUpperCase() + row.status.slice(1)}
                             className={
                               SCHEDULE_STATUS_STYLES[row.status] ?? 'bg-gray-100 text-gray-600'
                             }
                           />
+                        </td>
+                        <td className="py-2.5 text-right">
+                          {row.status !== 'paid' && row.status !== 'waived' && row.status !== 'cancelled' && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              loading={rentLinkLoading === row.id}
+                              onClick={() => handleRentPaymentLink(row.id)}
+                              title="Generate Stripe payment link and copy to clipboard"
+                            >
+                              <Link2 size={13} />
+                              <span className="hidden sm:inline">Pay Link</span>
+                            </Button>
+                          )}
                         </td>
                       </tr>
                     ))}
