@@ -5,8 +5,18 @@
 --       deposit trust tracking, VAT fields, expense-to-payout linking.
 -- ═══════════════════════════════════════════════════════════════════════════════
 
--- ── 1. Per-tenant platform fee + VAT registration ─────────────────────────────
+-- ── 1. Tenants — Connect + finance columns (all idempotent) ──────────────────
+-- Includes both connect-migration.sql and finance columns so this file is
+-- the single migration needed regardless of what was run before.
 ALTER TABLE tenants
+  ADD COLUMN IF NOT EXISTS stripe_account_id           TEXT,
+  ADD COLUMN IF NOT EXISTS stripe_connected            BOOLEAN DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS stripe_onboarding_completed BOOLEAN DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS stripe_charges_enabled      BOOLEAN DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS stripe_payouts_enabled      BOOLEAN DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS stripe_verification_status  TEXT DEFAULT 'unverified',
+  ADD COLUMN IF NOT EXISTS stripe_customer_id          TEXT,
+  ADD COLUMN IF NOT EXISTS stripe_subscription_id      TEXT,
   ADD COLUMN IF NOT EXISTS platform_fee_pct  NUMERIC(5,2) DEFAULT NULL,
     -- NULL = use global platform_settings.commission_pct (default)
     -- Set per-hotel to negotiate individual rates
@@ -14,6 +24,18 @@ ALTER TABLE tenants
     -- When TRUE: TownsHub adds 19% VAT to its management fee
   ADD COLUMN IF NOT EXISTS payout_hold_days  INTEGER DEFAULT 3;
     -- Days after guest checkout before earnings are released
+
+-- ── 1b. Platform settings table (also in connect-migration — idempotent) ─────
+CREATE TABLE IF NOT EXISTS platform_settings (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  key         TEXT UNIQUE NOT NULL,
+  value       TEXT NOT NULL,
+  description TEXT,
+  updated_at  TIMESTAMPTZ DEFAULT NOW()
+);
+INSERT INTO platform_settings (key, value, description)
+VALUES ('commission_pct', '10', 'Platform commission % deducted from each booking')
+ON CONFLICT (key) DO NOTHING;
 
 -- ── 2. Double-entry ledger — immutable source of financial truth ──────────────
 CREATE TABLE IF NOT EXISTS ledger_entries (
@@ -162,14 +184,59 @@ ALTER TABLE maintenance_requests
   ADD COLUMN IF NOT EXISTS payout_period       TEXT;
     -- 'YYYY-MM' — which payout month this expense is charged to
 
--- ── 7. VAT tracking on platform transactions ─────────────────────────────────
+-- ── 7. stripe_transactions — create if missing, add VAT columns ──────────────
+-- If connect-migration.sql was already run, CREATE IF NOT EXISTS is a no-op.
+-- If not, this creates the table so the finance migration is fully standalone.
+CREATE TABLE IF NOT EXISTS stripe_transactions (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id   UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  booking_id  UUID REFERENCES bookings(id) ON DELETE SET NULL,
+  type        TEXT NOT NULL CHECK (type IN ('payment','refund','commission','transfer','payout','chargeback')),
+  amount      DECIMAL(10,2) NOT NULL,
+  currency    TEXT NOT NULL DEFAULT 'eur',
+  stripe_id   TEXT,
+  status      TEXT NOT NULL DEFAULT 'pending'
+              CHECK (status IN ('pending','succeeded','failed','cancelled')),
+  description TEXT,
+  metadata    JSONB DEFAULT '{}',
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_stripe_txn_tenant  ON stripe_transactions(tenant_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_stripe_txn_booking ON stripe_transactions(booking_id);
+
+ALTER TABLE stripe_transactions ENABLE ROW LEVEL SECURITY;
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE tablename = 'stripe_transactions' AND policyname = 'stripe_txn_tenant_policy'
+  ) THEN
+    CREATE POLICY "stripe_txn_tenant_policy" ON stripe_transactions
+      FOR ALL USING (tenant_id = (SELECT tenant_id FROM users WHERE id = auth.uid()));
+  END IF;
+END $$;
+
+-- Add VAT columns (safe to run even if they already exist)
 ALTER TABLE stripe_transactions
   ADD COLUMN IF NOT EXISTS vat_amount       NUMERIC(10,2) DEFAULT 0,
   ADD COLUMN IF NOT EXISTS vat_invoice_ref  TEXT;
 
--- ── 8. Update bookings: track which payout they belong to ────────────────────
+-- ── 8. Bookings — Connect + finance columns (idempotent, safe to re-run) ─────
+-- These columns are also in connect-migration.sql; ADD COLUMN IF NOT EXISTS
+-- means this is safe whether or not connect-migration was run first.
 ALTER TABLE bookings
-  ADD COLUMN IF NOT EXISTS payout_id  UUID REFERENCES owner_payouts(id) ON DELETE SET NULL;
+  ADD COLUMN IF NOT EXISTS payment_status           TEXT DEFAULT 'unpaid'
+    CHECK (payment_status IN ('unpaid','paid','partially_paid','refunded','failed')),
+  ADD COLUMN IF NOT EXISTS stripe_payment_intent_id TEXT,
+  ADD COLUMN IF NOT EXISTS stripe_checkout_session  TEXT,
+  ADD COLUMN IF NOT EXISTS hotel_earning            DECIMAL(10,2),
+  ADD COLUMN IF NOT EXISTS platform_commission      DECIMAL(10,2),
+  ADD COLUMN IF NOT EXISTS payout_status            TEXT DEFAULT 'pending'
+    CHECK (payout_status IN ('pending','held','ready','released','paid_out')),
+  ADD COLUMN IF NOT EXISTS payout_id                UUID REFERENCES owner_payouts(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS idx_bookings_payment_status ON bookings(tenant_id, payment_status);
+CREATE INDEX IF NOT EXISTS idx_bookings_payout_status  ON bookings(tenant_id, payout_status);
 
 -- ── Convenience view: monthly P&L per tenant ──────────────────────────────────
 CREATE OR REPLACE VIEW ledger_monthly_summary AS
