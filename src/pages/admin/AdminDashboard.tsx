@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/Badge'
 import { useAuthStore } from '@/store/authStore'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate } from '@/lib/utils'
+import toast from 'react-hot-toast'
 
 const SUPER_ADMIN_EMAILS = ['admin@townshub.cy']
 
@@ -129,6 +130,11 @@ export default function AdminDashboard() {
   const [commissionInput, setCommissionInput] = useState('')
   const [savingCommission, setSavingCommission] = useState(false)
   const [paymentStats, setPaymentStats] = useState<any>(null)
+  const [payoutPeriod, setPayoutPeriod] = useState(new Date().toISOString().slice(0, 7))
+  const [runningPayout, setRunningPayout] = useState(false)
+  const [payoutResults, setPayoutResults] = useState<any[]>([])
+  const [editingFee, setEditingFee] = useState<Record<string, string>>({})
+  const [savingFee, setSavingFee] = useState<string | null>(null)
 
   const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(user?.email ?? '')
 
@@ -168,6 +174,47 @@ export default function AdminDashboard() {
       const d = await res.json()
       if (res.ok) { setCommissionPct(d.commission_pct) }
     } catch {} finally { setSavingCommission(false) }
+  }
+
+  async function savePerHotelFee(tenantId: string) {
+    const pct = parseFloat(editingFee[tenantId] ?? '')
+    if (isNaN(pct) || pct < 0 || pct > 100) { toast.error('Enter a valid percentage 0–100'); return }
+    setSavingFee(tenantId)
+    try {
+      const { error } = await supabase.from('tenants').update({ platform_fee_pct: pct }).eq('id', tenantId)
+      if (error) throw error
+      toast.success('Per-hotel fee saved')
+      await loadPaymentData()
+    } catch (e: any) { toast.error(e.message) } finally { setSavingFee(null) }
+  }
+
+  async function clearPerHotelFee(tenantId: string) {
+    await supabase.from('tenants').update({ platform_fee_pct: null }).eq('id', tenantId)
+    await loadPaymentData()
+    toast.success('Reverted to global default')
+  }
+
+  async function toggleVat(tenantId: string, current: boolean) {
+    await supabase.from('tenants').update({ vat_registered: !current }).eq('id', tenantId)
+    await loadPaymentData()
+    toast.success(!current ? 'VAT registration enabled — 19% will apply to platform fees' : 'VAT registration disabled')
+  }
+
+  async function runPayouts() {
+    setRunningPayout(true)
+    setPayoutResults([])
+    try {
+      const token = await getToken()
+      const res = await fetch('/api/stripe?action=payout-run', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ period: payoutPeriod }),
+      })
+      const d = await res.json()
+      setPayoutResults(d.results ?? [])
+      const paid = (d.results ?? []).filter((r: any) => r.status === 'paid').length
+      toast.success(`Payout run complete — ${paid} hotel(s) paid out`)
+    } catch (e: any) { toast.error(e.message) } finally { setRunningPayout(false) }
   }
 
   async function getToken() {
@@ -945,11 +992,46 @@ export default function AdminDashboard() {
                   ))}
                 </div>
 
-                {/* Connected hotels table */}
+                {/* Monthly payout run */}
+                <div className="bg-white rounded-xl shadow-sm ring-1 ring-mid p-5">
+                  <h2 className="font-semibold text-body mb-1">Monthly Payout Run</h2>
+                  <p className="text-xs text-subtext mb-4">Execute payouts for all connected hotels in a given period. Calculates: gross income − approved expenses − per-hotel fee (± VAT). Each hotel gets a separate Stripe transfer.</p>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <input
+                      type="month"
+                      value={payoutPeriod}
+                      onChange={(e) => setPayoutPeriod(e.target.value)}
+                      className="rounded-lg border border-mid px-3 py-2 text-sm text-body focus:outline-none focus:ring-2 focus:ring-gold"
+                    />
+                    <button
+                      onClick={runPayouts}
+                      disabled={runningPayout}
+                      className="flex items-center gap-2 px-4 py-2 rounded-lg bg-navy text-white text-sm font-semibold hover:bg-navy/90 disabled:opacity-50 transition-colors"
+                    >
+                      {runningPayout ? <><DollarSign size={14} className="animate-pulse" /> Running…</> : <><DollarSign size={14} /> Run Payouts</>}
+                    </button>
+                    <span className="text-xs text-subtext">Only checks out bookings between {payoutPeriod}-01 and end of month</span>
+                  </div>
+                  {payoutResults.length > 0 && (
+                    <div className="mt-4 space-y-1">
+                      {payoutResults.map((r, i) => (
+                        <div key={i} className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs ${r.status === 'paid' ? 'bg-green-50' : r.status === 'failed' ? 'bg-red-50' : 'bg-gray-50'}`}>
+                          <span className={`font-medium ${r.status === 'paid' ? 'text-green-700' : r.status === 'failed' ? 'text-red-700' : 'text-gray-500'}`}>{r.name}</span>
+                          <span className="text-subtext">{r.status}</span>
+                          {r.netPayout != null && <span className="font-semibold text-navy ml-auto">Net: {formatCurrency(r.netPayout)} (Gross: {formatCurrency(r.gross)} − Exp: {formatCurrency(r.totalExpenses)} − Fee: {formatCurrency(r.platformFee)})</span>}
+                          {r.reason && <span className="text-subtext ml-auto">{r.reason}</span>}
+                          {r.error && <span className="text-red-600 ml-auto">{r.error}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Per-hotel fee + VAT table */}
                 <div className="bg-white rounded-xl shadow-sm ring-1 ring-mid overflow-hidden">
                   <div className="px-5 py-4 border-b border-mid">
-                    <h2 className="font-semibold text-body">Hotel Stripe Connect Status</h2>
-                    <p className="text-xs text-subtext mt-0.5">Hotels cannot accept payments until their Stripe account is connected and verified.</p>
+                    <h2 className="font-semibold text-body">Hotel Fee & Compliance Settings</h2>
+                    <p className="text-xs text-subtext mt-0.5">Set per-hotel platform fee (overrides global default). Enable VAT for hotels that issue VAT-registered management invoices.</p>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
@@ -958,7 +1040,8 @@ export default function AdminDashboard() {
                           <th className="px-4 py-3 font-medium text-subtext">Hotel</th>
                           <th className="px-4 py-3 font-medium text-subtext text-center">Connected</th>
                           <th className="px-4 py-3 font-medium text-subtext text-center">Verification</th>
-                          <th className="px-4 py-3 font-medium text-subtext text-center">Charges</th>
+                          <th className="px-4 py-3 font-medium text-subtext text-center">Platform Fee</th>
+                          <th className="px-4 py-3 font-medium text-subtext text-center">VAT (19%)</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-mid">
@@ -967,28 +1050,55 @@ export default function AdminDashboard() {
                             <td className="px-4 py-3 font-medium text-body">{h.name}</td>
                             <td className="px-4 py-3 text-center">
                               {h.stripe_connected
-                                ? <span className="text-green-600 text-xs font-medium">✅ Yes</span>
+                                ? <span className="text-green-600 text-xs font-medium">✅ Connected</span>
                                 : <span className="text-gray-400 text-xs">Not connected</span>}
+                              <span className={`block text-xs mt-0.5 ${h.stripe_charges_enabled ? 'text-green-600' : 'text-gray-400'}`}>
+                                {h.stripe_charges_enabled ? 'charges on' : 'charges off'}
+                              </span>
                             </td>
                             <td className="px-4 py-3 text-center">
                               <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${
                                 h.stripe_verification_status === 'verified'   ? 'bg-green-100 text-green-700' :
                                 h.stripe_verification_status === 'pending'    ? 'bg-amber-100 text-amber-700' :
-                                h.stripe_verification_status === 'restricted' ? 'bg-red-100 text-red-700' :
                                 'bg-gray-100 text-gray-500'
-                              }`}>
-                                {h.stripe_verification_status ?? 'unverified'}
-                              </span>
+                              }`}>{h.stripe_verification_status ?? 'unverified'}</span>
                             </td>
                             <td className="px-4 py-3 text-center">
-                              {h.stripe_charges_enabled
-                                ? <span className="text-green-600 text-xs font-medium">Enabled</span>
-                                : <span className="text-gray-400 text-xs">Disabled</span>}
+                              <div className="flex items-center gap-1.5 justify-center">
+                                <div className="relative">
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    max={100}
+                                    step={0.5}
+                                    value={editingFee[h.id] ?? (h.platform_fee_pct != null ? String(h.platform_fee_pct) : '')}
+                                    onChange={(e) => setEditingFee(prev => ({ ...prev, [h.id]: e.target.value }))}
+                                    placeholder={`${commissionPct ?? 10} (default)`}
+                                    className="w-24 rounded-lg border border-mid px-2 py-1 text-xs text-body pr-5 focus:outline-none focus:ring-1 focus:ring-gold"
+                                  />
+                                  <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-xs text-subtext">%</span>
+                                </div>
+                                <button onClick={() => savePerHotelFee(h.id)} disabled={savingFee === h.id} className="text-xs px-2 py-1 rounded bg-navy text-white hover:bg-navy/80 disabled:opacity-50">
+                                  {savingFee === h.id ? '…' : '✓'}
+                                </button>
+                                {h.platform_fee_pct != null && (
+                                  <button onClick={() => clearPerHotelFee(h.id)} className="text-xs px-2 py-1 rounded border border-gray-200 text-gray-500 hover:bg-gray-50">↺</button>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <button
+                                onClick={() => toggleVat(h.id, h.vat_registered ?? false)}
+                                className={`relative inline-flex h-5 w-9 rounded-full transition-colors ${h.vat_registered ? 'bg-green-500' : 'bg-gray-300'}`}
+                              >
+                                <span className={`inline-block h-4 w-4 mt-0.5 rounded-full bg-white shadow transition-transform ${h.vat_registered ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                              </button>
+                              <span className="block text-xs text-subtext mt-0.5">{h.vat_registered ? 'On' : 'Off'}</span>
                             </td>
                           </tr>
                         ))}
                         {(paymentStats.hotels ?? []).length === 0 && (
-                          <tr><td colSpan={4} className="px-4 py-8 text-center text-subtext text-sm">No hotels registered.</td></tr>
+                          <tr><td colSpan={5} className="px-4 py-8 text-center text-subtext text-sm">No hotels registered.</td></tr>
                         )}
                       </tbody>
                     </table>

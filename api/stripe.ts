@@ -2,20 +2,29 @@
  * Stripe API — unified handler
  *
  * ── Platform billing (TownsHub subscription) ─────────────────────────────────
- * POST ?action=checkout       Create Checkout session for plan upgrade
- * POST ?action=portal         Open Stripe Customer Portal
- * POST ?action=webhook        Stripe webhook dispatcher (raw body)
+ * POST ?action=checkout            Create Checkout session for plan upgrade
+ * POST ?action=portal              Open Stripe Customer Portal
+ * POST ?action=webhook             Stripe webhook dispatcher (raw body)
  *
  * ── Stripe Connect Express (hotel marketplace) ───────────────────────────────
- * POST ?action=connect-onboard   Create / resume Express onboarding link
- * POST ?action=connect-status    Sync account status from Stripe → DB
- * POST ?action=connect-dashboard Get Stripe Express Dashboard login URL
- * POST ?action=booking-checkout  Create Checkout session for a guest booking
- * POST ?action=release-payout    Transfer hotel earnings after checkout
- * GET  ?action=confirm-booking   Verify session + record payment (success redirect)
+ * POST ?action=connect-onboard     Create / resume Express onboarding link
+ * POST ?action=connect-status      Sync account status from Stripe → DB
+ * POST ?action=connect-dashboard   Get Stripe Express Dashboard login URL
+ * POST ?action=booking-checkout    Create Checkout session for a guest booking
+ * POST ?action=rent-checkout       Create Checkout session for rent payment
+ * POST ?action=release-payout      Transfer hotel earnings after checkout
+ * GET  ?action=confirm-booking     Verify session + record payment (success redirect)
+ *
+ * ── Finance: payouts, ledger, deposits, rent invoices ────────────────────────
+ * GET  ?action=payout-preview      Calculate payout breakdown without executing
+ * POST ?action=payout-run          Admin: execute full payout for a period
+ * POST ?action=generate-rent-invoices  Admin/cron: create monthly rent invoices
+ * POST ?action=deposit-action      Record deposit receipt / refund / forfeiture
+ * GET  ?action=ledger              Paginated ledger entries for a tenant
+ * GET  ?action=payout-history      List owner_payouts for a tenant
  *
  * ── Admin ─────────────────────────────────────────────────────────────────────
- * GET/POST ?action=admin-commission  Read / update platform commission %
+ * GET/POST ?action=admin-commission  Read / update global or per-tenant fee
  * GET      ?action=admin-stats       Overview of connected hotels + revenue
  *
  * Required env vars:
@@ -76,6 +85,40 @@ async function getCommissionPct(db: ReturnType<typeof getServiceClient>): Promis
     .single()
   return parseFloat(data?.value ?? '10')
 }
+
+/** Returns per-tenant fee if set, otherwise falls back to global commission_pct */
+async function getEffectiveFee(db: ReturnType<typeof getServiceClient>, tenantId: string): Promise<number> {
+  const { data } = await db
+    .from('tenants')
+    .select('platform_fee_pct, vat_registered')
+    .eq('id', tenantId)
+    .single()
+  if (data?.platform_fee_pct != null) return parseFloat(String(data.platform_fee_pct))
+  return getCommissionPct(db)
+}
+
+/** Writes a batch of ledger entries (server-side only via service role) */
+async function writeLedger(
+  db: ReturnType<typeof getServiceClient>,
+  entries: Array<{
+    tenant_id: string
+    entry_type: string
+    debit: number
+    credit: number
+    reference_id?: string
+    reference_table?: string
+    description: string
+    period_month?: string
+    created_by?: string
+  }>
+) {
+  if (entries.length === 0) return
+  const { error } = await db.from('ledger_entries').insert(entries)
+  if (error) console.error('[ledger] write failed:', error.message, entries[0])
+}
+
+/** Cyprus VAT rate */
+const CY_VAT_RATE = 0.19
 
 // ── Platform billing: Checkout ────────────────────────────────────────────────
 
@@ -430,7 +473,7 @@ async function handleRentCheckout(req: any, res: any, db: ReturnType<typeof getS
   return res.json({ url: session.url })
 }
 
-// ── Release payout (after guest checkout) ─────────────────────────────────────
+// ── Release payout — correct formula: gross − expenses − fee (± VAT) ──────────
 
 async function handleReleasePayout(req: any, res: any, db: ReturnType<typeof getServiceClient>, tenantId: string) {
   const { bookingId } = req.body ?? {}
@@ -438,42 +481,474 @@ async function handleReleasePayout(req: any, res: any, db: ReturnType<typeof get
 
   const { data: booking } = await db
     .from('bookings')
-    .select('id,payment_status,payout_status,hotel_earning,stripe_payment_intent_id')
+    .select('id,payment_status,payout_status,total_amount,check_out_date,stripe_payment_intent_id')
     .eq('id', bookingId)
     .eq('tenant_id', tenantId)
     .single()
 
   if (!booking) return res.status(404).json({ error: 'Booking not found' })
-  if (booking.payment_status !== 'paid') return res.status(400).json({ error: 'Booking not paid' })
-  if (booking.payout_status === 'released' || booking.payout_status === 'paid_out') {
+  if (booking.payment_status !== 'paid')   return res.status(400).json({ error: 'Booking not paid' })
+  if (['released','paid_out'].includes(booking.payout_status ?? '')) {
     return res.status(400).json({ error: 'Payout already released' })
   }
-  if (!booking.hotel_earning || booking.hotel_earning <= 0) {
-    return res.status(400).json({ error: 'No hotel earnings to release' })
-  }
 
-  const { data: tenant } = await db.from('tenants').select('stripe_account_id').eq('id', tenantId).single()
+  const { data: tenant } = await db
+    .from('tenants')
+    .select('stripe_account_id,vat_registered,payout_hold_days')
+    .eq('id', tenantId)
+    .single()
   if (!tenant?.stripe_account_id) return res.status(400).json({ error: 'Hotel Stripe account not connected' })
 
+  // Hold period check
+  const holdDays = tenant.payout_hold_days ?? 3
+  if (holdDays > 0 && booking.check_out_date) {
+    const releaseDate = new Date(booking.check_out_date)
+    releaseDate.setDate(releaseDate.getDate() + holdDays)
+    if (new Date() < releaseDate) {
+      return res.status(400).json({
+        error: `Payout is on hold until ${releaseDate.toISOString().slice(0,10)} (${holdDays}-day hold period)`,
+      })
+    }
+  }
+
+  // ── Correct payout formula ─────────────────────────────────────────────────
+  const gross = booking.total_amount ?? 0
+  const period = booking.check_out_date?.slice(0, 7) ?? new Date().toISOString().slice(0, 7)
+
+  // Sum approved expenses for this booking's period
+  const { data: expenses } = await db
+    .from('maintenance_requests')
+    .select('expense_amount')
+    .eq('tenant_id', tenantId)
+    .eq('approved_for_payout', true)
+    .eq('payout_period', period)
+    .is('payout_id', null)  // not yet included in a payout
+
+  const totalExpenses = (expenses ?? []).reduce((s, e) => s + (parseFloat(e.expense_amount) || 0), 0)
+
+  const feePct     = await getEffectiveFee(db, tenantId)
+  const platformFee = Math.round(gross * feePct / 100 * 100) / 100
+  const vatOnFee   = tenant.vat_registered ? Math.round(platformFee * CY_VAT_RATE * 100) / 100 : 0
+  const netPayout  = Math.max(0, gross - totalExpenses - platformFee - vatOnFee)
+
+  if (netPayout <= 0) {
+    return res.status(400).json({ error: `Net payout is €0 after deducting expenses (€${totalExpenses}) and fee (€${platformFee})` })
+  }
+
+  // Create owner_payouts record
+  const expenseIds = (expenses ?? []).map((e: any) => e.id).filter(Boolean)
+  const { data: payoutRecord } = await db.from('owner_payouts').insert({
+    tenant_id:        tenantId,
+    period_start:     `${period}-01`,
+    period_end:       booking.check_out_date,
+    gross_income:     gross,
+    total_expenses:   totalExpenses,
+    platform_fee_pct: feePct,
+    platform_fee:     platformFee,
+    vat_on_fee:       vatOnFee,
+    net_payout:       netPayout,
+    booking_ids:      [bookingId],
+    expense_ids:      expenseIds,
+    status:           'processing',
+  }).select().single()
+
+  // Execute Stripe transfer
   const transfer = await stripe().transfers.create({
-    amount:      Math.round(booking.hotel_earning * 100),
+    amount:      Math.round(netPayout * 100),
     currency:    'eur',
     destination: tenant.stripe_account_id,
-    metadata:    { booking_id: bookingId, tenant_id: tenantId },
+    transfer_group: payoutRecord?.id,
+    metadata:    { booking_id: bookingId, tenant_id: tenantId, payout_id: payoutRecord?.id ?? '' },
   })
 
-  await db.from('bookings').update({ payout_status: 'released' }).eq('id', bookingId)
+  // Update records
+  await db.from('owner_payouts').update({
+    status:              'paid',
+    stripe_transfer_id:  transfer.id,
+    paid_at:             new Date().toISOString(),
+  }).eq('id', payoutRecord!.id)
+
+  await db.from('bookings').update({
+    payout_status: 'released',
+    payout_id:     payoutRecord!.id,
+    hotel_earning: netPayout,
+    platform_commission: platformFee,
+  }).eq('id', bookingId)
+
+  // Mark expenses as paid out
+  if (expenseIds.length > 0) {
+    await db.from('maintenance_requests').update({ payout_id: payoutRecord!.id }).in('id', expenseIds)
+  }
+
+  // Write double-entry ledger
+  await writeLedger(db, [
+    {
+      tenant_id: tenantId, entry_type: 'booking_income',
+      debit: 0, credit: gross,
+      reference_id: bookingId, reference_table: 'bookings',
+      description: `Booking income — ${bookingId.slice(0,8)}`, period_month: period,
+    },
+    ...(totalExpenses > 0 ? [{
+      tenant_id: tenantId, entry_type: 'expense',
+      debit: totalExpenses, credit: 0,
+      reference_id: payoutRecord!.id, reference_table: 'owner_payouts',
+      description: `Approved expenses for ${period}`, period_month: period,
+    }] : []),
+    {
+      tenant_id: tenantId, entry_type: 'platform_fee',
+      debit: platformFee, credit: 0,
+      reference_id: payoutRecord!.id, reference_table: 'owner_payouts',
+      description: `Platform fee ${feePct}%`, period_month: period,
+    },
+    ...(vatOnFee > 0 ? [{
+      tenant_id: tenantId, entry_type: 'vat_on_fee',
+      debit: vatOnFee, credit: 0,
+      reference_id: payoutRecord!.id, reference_table: 'owner_payouts',
+      description: `VAT (19%) on platform fee`, period_month: period,
+    }] : []),
+    {
+      tenant_id: tenantId, entry_type: 'payout',
+      debit: netPayout, credit: 0,
+      reference_id: payoutRecord!.id, reference_table: 'owner_payouts',
+      description: `Stripe transfer ${transfer.id}`, period_month: period,
+    },
+  ] as any)
+
+  // Also record in stripe_transactions for backwards compat
   await db.from('stripe_transactions').insert({
-    tenant_id:   tenantId,
-    booking_id:  bookingId,
-    type:        'transfer',
-    amount:      booking.hotel_earning,
-    stripe_id:   transfer.id,
-    status:      'succeeded',
-    description: 'Hotel earnings transfer after checkout',
+    tenant_id: tenantId, booking_id: bookingId,
+    type: 'transfer', amount: netPayout,
+    stripe_id: transfer.id, status: 'succeeded',
+    description: `Net payout: €${gross} − €${totalExpenses} expenses − €${platformFee} fee${vatOnFee > 0 ? ` − €${vatOnFee} VAT` : ''} = €${netPayout}`,
   })
 
-  return res.json({ ok: true, transferId: transfer.id, amount: booking.hotel_earning })
+  return res.json({
+    ok: true,
+    transferId:     transfer.id,
+    payoutId:       payoutRecord!.id,
+    gross,
+    totalExpenses,
+    platformFee,
+    vatOnFee,
+    netPayout,
+  })
+}
+
+// ── Payout preview — calculate without executing ──────────────────────────────
+
+async function handlePayoutPreview(req: any, res: any, db: ReturnType<typeof getServiceClient>, tenantId: string) {
+  const { bookingId, period } = req.query as Record<string, string>
+  const feePct = await getEffectiveFee(db, tenantId)
+  const { data: tenant } = await db.from('tenants').select('vat_registered,stripe_account_id,stripe_charges_enabled').eq('id', tenantId).single()
+
+  if (bookingId) {
+    const { data: booking } = await db.from('bookings')
+      .select('id,total_amount,check_out_date,payment_status,payout_status')
+      .eq('id', bookingId).eq('tenant_id', tenantId).single()
+    if (!booking) return res.status(404).json({ error: 'Booking not found' })
+
+    const gross     = booking.total_amount ?? 0
+    const pMonth    = booking.check_out_date?.slice(0, 7) ?? new Date().toISOString().slice(0, 7)
+    const { data: expenses } = await db.from('maintenance_requests')
+      .select('expense_amount').eq('tenant_id', tenantId).eq('approved_for_payout', true).eq('payout_period', pMonth)
+    const totalExpenses = (expenses ?? []).reduce((s, e) => s + (parseFloat(e.expense_amount) || 0), 0)
+    const platformFee   = Math.round(gross * feePct / 100 * 100) / 100
+    const vatOnFee      = tenant?.vat_registered ? Math.round(platformFee * CY_VAT_RATE * 100) / 100 : 0
+    const netPayout     = Math.max(0, gross - totalExpenses - platformFee - vatOnFee)
+
+    return res.json({
+      bookingId, gross, totalExpenses, platformFee, feePct, vatOnFee, netPayout,
+      vatRegistered: tenant?.vat_registered,
+      stripeReady: !!(tenant?.stripe_account_id && tenant?.stripe_charges_enabled),
+    })
+  }
+
+  // Period-level preview (all unpaid bookings in a month)
+  const targetPeriod = period ?? new Date().toISOString().slice(0, 7)
+  const periodStart  = `${targetPeriod}-01`
+  const periodEnd    = new Date(new Date(periodStart).getFullYear(), new Date(periodStart).getMonth() + 1, 0).toISOString().slice(0, 10)
+
+  const { data: bookings } = await db.from('bookings')
+    .select('id,total_amount,check_out_date,payment_status,payout_status')
+    .eq('tenant_id', tenantId).eq('payment_status', 'paid').eq('payout_status', 'held')
+    .gte('check_out_date', periodStart).lte('check_out_date', periodEnd)
+
+  const { data: expenses } = await db.from('maintenance_requests')
+    .select('id,expense_amount,title').eq('tenant_id', tenantId)
+    .eq('approved_for_payout', true).eq('payout_period', targetPeriod)
+
+  const gross         = (bookings ?? []).reduce((s, b) => s + (b.total_amount ?? 0), 0)
+  const totalExpenses = (expenses ?? []).reduce((s, e) => s + (parseFloat(e.expense_amount) || 0), 0)
+  const platformFee   = Math.round(gross * feePct / 100 * 100) / 100
+  const vatOnFee      = tenant?.vat_registered ? Math.round(platformFee * CY_VAT_RATE * 100) / 100 : 0
+  const netPayout     = Math.max(0, gross - totalExpenses - platformFee - vatOnFee)
+
+  return res.json({
+    period: targetPeriod, gross, totalExpenses, platformFee, feePct, vatOnFee, netPayout,
+    bookingCount: (bookings ?? []).length,
+    expenseCount: (expenses ?? []).length,
+    vatRegistered: tenant?.vat_registered,
+    stripeReady: !!(tenant?.stripe_account_id && tenant?.stripe_charges_enabled),
+    expenses: expenses ?? [],
+  })
+}
+
+// ── Payout run — admin executes monthly payout for all hotels ─────────────────
+
+async function handlePayoutRun(req: any, res: any, db: ReturnType<typeof getServiceClient>, _tenantId: string) {
+  // Admin-only: verify caller has admin role
+  const { period, tenantIds } = req.body ?? {}
+  const targetPeriod  = period ?? new Date().toISOString().slice(0, 7)
+  const periodStart   = `${targetPeriod}-01`
+  const periodEnd     = new Date(new Date(periodStart).getFullYear(), new Date(periodStart).getMonth() + 1, 0).toISOString().slice(0, 10)
+
+  // Get all tenants (or specific ones) that have connected Stripe accounts
+  let tenantsQuery = db.from('tenants')
+    .select('id,name,stripe_account_id,stripe_charges_enabled,vat_registered,platform_fee_pct,payout_hold_days')
+    .eq('stripe_connected', true)
+    .eq('stripe_charges_enabled', true)
+  if (tenantIds?.length > 0) tenantsQuery = tenantsQuery.in('id', tenantIds)
+  const { data: hotels } = await tenantsQuery
+
+  const results = []
+  for (const hotel of (hotels ?? [])) {
+    try {
+      // Get paid, held bookings for this period
+      const { data: bookings } = await db.from('bookings')
+        .select('id,total_amount').eq('tenant_id', hotel.id)
+        .eq('payment_status', 'paid').eq('payout_status', 'held')
+        .gte('check_out_date', periodStart).lte('check_out_date', periodEnd)
+
+      if (!bookings || bookings.length === 0) {
+        results.push({ tenantId: hotel.id, name: hotel.name, status: 'skipped', reason: 'No eligible bookings' })
+        continue
+      }
+
+      const gross         = bookings.reduce((s, b) => s + (b.total_amount ?? 0), 0)
+      const feePct        = hotel.platform_fee_pct != null ? parseFloat(String(hotel.platform_fee_pct)) : await getCommissionPct(db)
+      const { data: expenses } = await db.from('maintenance_requests')
+        .select('id,expense_amount').eq('tenant_id', hotel.id)
+        .eq('approved_for_payout', true).eq('payout_period', targetPeriod)
+      const totalExpenses = (expenses ?? []).reduce((s, e) => s + (parseFloat(e.expense_amount) || 0), 0)
+      const platformFee   = Math.round(gross * feePct / 100 * 100) / 100
+      const vatOnFee      = hotel.vat_registered ? Math.round(platformFee * CY_VAT_RATE * 100) / 100 : 0
+      const netPayout     = Math.max(0, gross - totalExpenses - platformFee - vatOnFee)
+
+      if (netPayout <= 0) {
+        results.push({ tenantId: hotel.id, name: hotel.name, status: 'skipped', reason: `Net ≤ 0 (gross €${gross}, expenses €${totalExpenses}, fee €${platformFee})` })
+        continue
+      }
+
+      const { data: payoutRecord } = await db.from('owner_payouts').insert({
+        tenant_id: hotel.id, period_start: periodStart, period_end: periodEnd,
+        gross_income: gross, total_expenses: totalExpenses,
+        platform_fee_pct: feePct, platform_fee: platformFee,
+        vat_on_fee: vatOnFee, net_payout: netPayout,
+        booking_ids: bookings.map(b => b.id),
+        expense_ids: (expenses ?? []).map((e: any) => e.id).filter(Boolean),
+        status: 'processing',
+      }).select().single()
+
+      const transfer = await stripe().transfers.create({
+        amount: Math.round(netPayout * 100), currency: 'eur',
+        destination: hotel.stripe_account_id,
+        transfer_group: payoutRecord!.id,
+        metadata: { period: targetPeriod, tenant_id: hotel.id, payout_id: payoutRecord!.id },
+      })
+
+      await db.from('owner_payouts').update({
+        status: 'paid', stripe_transfer_id: transfer.id, paid_at: new Date().toISOString(),
+      }).eq('id', payoutRecord!.id)
+
+      await db.from('bookings').update({ payout_status: 'released', payout_id: payoutRecord!.id })
+        .in('id', bookings.map(b => b.id))
+
+      // Ledger entries
+      await writeLedger(db, [
+        { tenant_id: hotel.id, entry_type: 'booking_income', debit: 0, credit: gross, reference_id: payoutRecord!.id, reference_table: 'owner_payouts', description: `${bookings.length} bookings in ${targetPeriod}`, period_month: targetPeriod },
+        ...(totalExpenses > 0 ? [{ tenant_id: hotel.id, entry_type: 'expense', debit: totalExpenses, credit: 0, reference_id: payoutRecord!.id, reference_table: 'owner_payouts', description: `Expenses ${targetPeriod}`, period_month: targetPeriod }] : []),
+        { tenant_id: hotel.id, entry_type: 'platform_fee', debit: platformFee, credit: 0, reference_id: payoutRecord!.id, reference_table: 'owner_payouts', description: `Fee ${feePct}%`, period_month: targetPeriod },
+        ...(vatOnFee > 0 ? [{ tenant_id: hotel.id, entry_type: 'vat_on_fee', debit: vatOnFee, credit: 0, reference_id: payoutRecord!.id, reference_table: 'owner_payouts', description: `VAT on fee`, period_month: targetPeriod }] : []),
+        { tenant_id: hotel.id, entry_type: 'payout', debit: netPayout, credit: 0, reference_id: payoutRecord!.id, reference_table: 'owner_payouts', description: `Transfer ${transfer.id}`, period_month: targetPeriod },
+      ] as any)
+
+      results.push({ tenantId: hotel.id, name: hotel.name, status: 'paid', transferId: transfer.id, netPayout, gross, totalExpenses, platformFee })
+    } catch (err: any) {
+      results.push({ tenantId: hotel.id, name: hotel.name, status: 'failed', error: err.message })
+    }
+  }
+
+  return res.json({ ok: true, period: targetPeriod, results })
+}
+
+// ── Generate rent invoices (cron / manual) ────────────────────────────────────
+
+async function handleGenerateRentInvoices(req: any, res: any, db: ReturnType<typeof getServiceClient>, tenantId: string) {
+  const { period } = req.body ?? {}
+  const targetPeriod = period ?? new Date().toISOString().slice(0, 7)
+  const [year, month] = targetPeriod.split('-').map(Number)
+  const periodStart   = `${targetPeriod}-01`
+  const lastDay       = new Date(year, month, 0).getDate()
+  const periodEnd     = `${targetPeriod}-${lastDay}`
+  const dueDate       = `${targetPeriod}-01`  // due on 1st of month
+
+  // Active leases for this tenant
+  const { data: leases } = await db.from('leases')
+    .select('id,monthly_rent,property_tenant:property_tenants(id,first_name,last_name)')
+    .eq('tenant_id', tenantId)
+    .eq('status', 'active')
+    .lte('start_date', periodEnd)
+    .or(`end_date.is.null,end_date.gte.${periodStart}`)
+
+  if (!leases || leases.length === 0) {
+    return res.json({ ok: true, created: 0, message: 'No active leases' })
+  }
+
+  // Check which leases already have an invoice for this period
+  const { data: existing } = await db.from('rent_invoices')
+    .select('lease_id')
+    .eq('tenant_id', tenantId)
+    .eq('period_start', periodStart)
+
+  const existingLeaseIds = new Set((existing ?? []).map((r: any) => r.lease_id))
+
+  const toCreate = (leases ?? [])
+    .filter((l: any) => !existingLeaseIds.has(l.id))
+    .map((l: any) => ({
+      tenant_id:    tenantId,
+      lease_id:     l.id,
+      period_start: periodStart,
+      period_end:   periodEnd,
+      due_date:     dueDate,
+      amount:       l.monthly_rent,
+      vat_amount:   0,
+      status:       'pending',
+    }))
+
+  if (toCreate.length === 0) {
+    return res.json({ ok: true, created: 0, message: `All invoices for ${targetPeriod} already exist` })
+  }
+
+  const { data: created, error } = await db.from('rent_invoices').insert(toCreate).select('id')
+  if (error) return res.status(500).json({ error: error.message })
+
+  return res.json({ ok: true, created: (created ?? []).length, period: targetPeriod, total: leases.length })
+}
+
+// ── Deposit action — trust account lifecycle ──────────────────────────────────
+
+async function handleDepositAction(req: any, res: any, db: ReturnType<typeof getServiceClient>, tenantId: string) {
+  const { leaseId, action, amount, notes, trustRef } = req.body ?? {}
+  if (!leaseId || !action) return res.status(400).json({ error: 'leaseId and action are required' })
+  if (!['received','refund_full','refund_partial','forfeit'].includes(action)) {
+    return res.status(400).json({ error: 'action must be received | refund_full | refund_partial | forfeit' })
+  }
+
+  const { data: lease } = await db.from('leases')
+    .select('id,deposit_amount,deposit_status,deposit_trust_ref')
+    .eq('id', leaseId).eq('tenant_id', tenantId).single()
+  if (!lease) return res.status(404).json({ error: 'Lease not found' })
+
+  const period = new Date().toISOString().slice(0, 7)
+  const now    = new Date().toISOString()
+
+  if (action === 'received') {
+    if (lease.deposit_status === 'held') return res.status(400).json({ error: 'Deposit already marked as held' })
+    await db.from('leases').update({
+      deposit_paid:      true,
+      deposit_status:    'held',
+      deposit_trust_ref: trustRef ?? null,
+    }).eq('id', leaseId)
+    await writeLedger(db, [{
+      tenant_id: tenantId, entry_type: 'deposit_in',
+      debit: 0, credit: lease.deposit_amount,
+      reference_id: leaseId, reference_table: 'leases',
+      description: `Security deposit received${trustRef ? ` — ref: ${trustRef}` : ''}`,
+      period_month: period,
+    }] as any)
+    return res.json({ ok: true, status: 'held', amount: lease.deposit_amount })
+  }
+
+  if (lease.deposit_status !== 'held') {
+    return res.status(400).json({ error: 'Deposit is not in "held" state' })
+  }
+
+  if (action === 'refund_full') {
+    await db.from('leases').update({
+      deposit_status: 'refunded', deposit_refunded_at: now,
+      deposit_refund_amount: lease.deposit_amount, deposit_notes: notes ?? null,
+    }).eq('id', leaseId)
+    await writeLedger(db, [{
+      tenant_id: tenantId, entry_type: 'deposit_out',
+      debit: lease.deposit_amount, credit: 0,
+      reference_id: leaseId, reference_table: 'leases',
+      description: `Full deposit refund${notes ? ` — ${notes}` : ''}`, period_month: period,
+    }] as any)
+    return res.json({ ok: true, status: 'refunded', amount: lease.deposit_amount })
+  }
+
+  if (action === 'refund_partial') {
+    const refundAmt  = parseFloat(amount) || 0
+    const damageAmt  = lease.deposit_amount - refundAmt
+    await db.from('leases').update({
+      deposit_status: 'partially_refunded', deposit_refunded_at: now,
+      deposit_refund_amount: refundAmt, deposit_damage_amount: damageAmt,
+      deposit_notes: notes ?? null,
+    }).eq('id', leaseId)
+    await writeLedger(db, [
+      { tenant_id: tenantId, entry_type: 'deposit_out', debit: refundAmt, credit: 0, reference_id: leaseId, reference_table: 'leases', description: `Partial deposit refund — €${refundAmt}`, period_month: period },
+      { tenant_id: tenantId, entry_type: 'deposit_forfeited', debit: 0, credit: damageAmt, reference_id: leaseId, reference_table: 'leases', description: `Deposit deduction for damages — €${damageAmt}${notes ? `. ${notes}` : ''}`, period_month: period },
+    ] as any)
+    return res.json({ ok: true, status: 'partially_refunded', refundAmount: refundAmt, damageAmount: damageAmt })
+  }
+
+  if (action === 'forfeit') {
+    await db.from('leases').update({
+      deposit_status: 'forfeited', deposit_forfeited_at: now,
+      deposit_damage_amount: lease.deposit_amount, deposit_notes: notes ?? null,
+    }).eq('id', leaseId)
+    await writeLedger(db, [{
+      tenant_id: tenantId, entry_type: 'deposit_forfeited',
+      debit: 0, credit: lease.deposit_amount,
+      reference_id: leaseId, reference_table: 'leases',
+      description: `Deposit forfeited${notes ? ` — ${notes}` : ''}`, period_month: period,
+    }] as any)
+    return res.json({ ok: true, status: 'forfeited', amount: lease.deposit_amount })
+  }
+}
+
+// ── Ledger — paginated read ───────────────────────────────────────────────────
+
+async function handleLedger(req: any, res: any, db: ReturnType<typeof getServiceClient>, tenantId: string) {
+  const { period, type, page = '1', limit = '50' } = req.query as Record<string, string>
+  const pageNum  = Math.max(1, parseInt(page))
+  const pageSize = Math.min(100, parseInt(limit))
+  const from     = (pageNum - 1) * pageSize
+
+  let q = db.from('ledger_entries')
+    .select('*', { count: 'exact' })
+    .eq('tenant_id', tenantId)
+    .order('created_at', { ascending: false })
+    .range(from, from + pageSize - 1)
+
+  if (period) q = q.eq('period_month', period)
+  if (type)   q = q.eq('entry_type', type)
+
+  const { data, error, count } = await q
+  if (error) return res.status(500).json({ error: error.message })
+  return res.json({ entries: data ?? [], total: count ?? 0, page: pageNum, pageSize })
+}
+
+// ── Payout history ────────────────────────────────────────────────────────────
+
+async function handlePayoutHistory(req: any, res: any, db: ReturnType<typeof getServiceClient>, tenantId: string) {
+  const { data, error } = await db.from('owner_payouts')
+    .select('*')
+    .eq('tenant_id', tenantId)
+    .order('created_at', { ascending: false })
+    .limit(24)
+  if (error) return res.status(500).json({ error: error.message })
+  return res.json({ payouts: data ?? [] })
 }
 
 // ── Admin: commission ─────────────────────────────────────────────────────────
@@ -669,9 +1144,7 @@ export default async function handler(req: any, res: any) {
   if (action === 'admin-commission') return handleAdminCommission(req, res)
   if (action === 'admin-stats')      return handleAdminStats(req, res)
 
-  // ── Require POST ───────────────────────────────────────────────────────────
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
-
+  // ── Auth + allow GET for read actions ─────────────────────────────────────
   const ip = getClientIp(req)
   const rl = rateLimit(`stripe:${ip}`, 30, 60_000)
   if (!rl.allowed) return res.status(429).json({ error: 'Too many requests' })
@@ -680,21 +1153,30 @@ export default async function handler(req: any, res: any) {
   const { tenantId } = await verifyTenantToken(req, db)
   if (!tenantId) return res.status(401).json({ error: 'Unauthorised' })
 
+  if (action === 'payout-preview')  return handlePayoutPreview(req, res, db, tenantId)
+  if (action === 'ledger')          return handleLedger(req, res, db, tenantId)
+  if (action === 'payout-history')  return handlePayoutHistory(req, res, db, tenantId)
+  if (action === 'connect-status')  return handleConnectStatus(req, res, db, tenantId)
+
+  // ── Remaining actions require POST ─────────────────────────────────────────
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
+
   switch (action) {
     // Platform billing
-    case 'checkout':           return handleCheckout(req, res, db, tenantId)
-    case 'portal':             return handlePortal(req, res, db, tenantId)
+    case 'checkout':                  return handleCheckout(req, res, db, tenantId)
+    case 'portal':                    return handlePortal(req, res, db, tenantId)
     // Connect
-    case 'connect-onboard':    return handleConnectOnboard(req, res, db, tenantId)
-    case 'connect-status':     return handleConnectStatus(req, res, db, tenantId)
-    case 'connect-dashboard':  return handleConnectDashboard(req, res, db, tenantId)
-    case 'booking-checkout':   return handleBookingCheckout(req, res, db, tenantId)
-    case 'release-payout':     return handleReleasePayout(req, res, db, tenantId)
-    case 'rent-checkout':      return handleRentCheckout(req, res, db, tenantId)
+    case 'connect-onboard':           return handleConnectOnboard(req, res, db, tenantId)
+    case 'connect-status':            return handleConnectStatus(req, res, db, tenantId)
+    case 'connect-dashboard':         return handleConnectDashboard(req, res, db, tenantId)
+    case 'booking-checkout':          return handleBookingCheckout(req, res, db, tenantId)
+    case 'rent-checkout':             return handleRentCheckout(req, res, db, tenantId)
+    // Finance
+    case 'release-payout':            return handleReleasePayout(req, res, db, tenantId)
+    case 'payout-run':                return handlePayoutRun(req, res, db, tenantId)
+    case 'generate-rent-invoices':    return handleGenerateRentInvoices(req, res, db, tenantId)
+    case 'deposit-action':            return handleDepositAction(req, res, db, tenantId)
     default:
-      return res.status(400).json({
-        error: 'Unknown action',
-        actions: ['checkout','portal','webhook','connect-onboard','connect-status','connect-dashboard','booking-checkout','release-payout','confirm-booking','admin-commission','admin-stats'],
-      })
+      return res.status(400).json({ error: 'Unknown action' })
   }
 }

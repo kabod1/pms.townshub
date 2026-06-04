@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/Input'
 import { Card } from '@/components/ui/Card'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
-import { CreditCard, ArrowRight, CheckCircle2, AlertCircle } from 'lucide-react'
+import { CreditCard, ArrowRight, CheckCircle2, AlertCircle, Receipt } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 const schema = z.object({
@@ -36,8 +36,10 @@ const SETTINGS_NAV = [
 
 export default function HotelSettings() {
   const { tenant, setAuth, user } = useAuthStore()
-  const connected = !!(tenant as any)?.stripe_connected
-  const verified  = (tenant as any)?.stripe_verification_status === 'verified'
+  const connected    = !!(tenant as any)?.stripe_connected
+  const verified     = (tenant as any)?.stripe_verification_status === 'verified'
+  const vatRegistered= !!(tenant as any)?.vat_registered
+  const customFee    = (tenant as any)?.platform_fee_pct
 
   const { register, handleSubmit, reset, formState: { errors, isDirty, isSubmitting } } =
     useForm<FormData>({ resolver: zodResolver(schema) })
@@ -132,7 +134,7 @@ export default function HotelSettings() {
                   <p className="text-xs text-subtext mt-0.5">
                     Connect your Stripe account to accept guest payments and receive automatic payouts.
                   </p>
-                  <div className="flex items-center gap-2 mt-2">
+                  <div className="flex flex-wrap items-center gap-2 mt-2">
                     {connected && verified && (
                       <span className="flex items-center gap-1 text-xs font-medium text-green-700">
                         <CheckCircle2 size={12} /> Connected & verified
@@ -148,6 +150,11 @@ export default function HotelSettings() {
                         <AlertCircle size={12} /> Not connected — payments disabled
                       </span>
                     )}
+                    {customFee != null && (
+                      <span className="flex items-center gap-1 text-xs text-subtext border border-mid rounded-full px-2 py-0.5">
+                        Custom fee: {customFee}%
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -157,6 +164,35 @@ export default function HotelSettings() {
               >
                 Manage <ArrowRight size={13} />
               </Link>
+            </div>
+          </Card>
+
+          {/* ── VAT registration ──────────────────────────────────────── */}
+          <Card>
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center shrink-0 mt-0.5">
+                  <Receipt size={16} className="text-amber-600" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-semibold text-body">VAT Registration (Cyprus)</h2>
+                  <p className="text-xs text-subtext mt-0.5">
+                    When enabled, TownsHub adds 19% Cyprus VAT to its platform management fee and issues a VAT invoice.
+                    Your hotel's VAT number appears on all financial documents.
+                  </p>
+                  <p className={`text-xs mt-2 font-medium flex items-center gap-1 ${vatRegistered ? 'text-amber-600' : 'text-subtext'}`}>
+                    {vatRegistered
+                      ? <><CheckCircle2 size={12} /> VAT-registered — 19% VAT applies to platform fees</>
+                      : <><AlertCircle size={12} /> Not VAT-registered — contact admin to enable</>
+                    }
+                  </p>
+                </div>
+              </div>
+              {vatRegistered && tenant?.vat_number && (
+                <span className="text-xs font-mono bg-amber-50 text-amber-700 px-2 py-1 rounded-lg border border-amber-200 shrink-0">
+                  VAT: {tenant.vat_number}
+                </span>
+              )}
             </div>
           </Card>
         </div>
