@@ -152,23 +152,14 @@ export default function LeaseDetail() {
     onError: (e: Error) => toast.error(e.message),
   })
 
-  function getToken(): string | null {
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i)
-      if (k?.startsWith('sb-') && k.endsWith('-auth-token')) {
-        const raw = localStorage.getItem(k)
-        return raw ? JSON.parse(raw)?.access_token : null
-      }
-    }
-    return null
-  }
-
   async function handleRentPaymentLink(scheduleId: string) {
     setRentLinkLoading(scheduleId)
     try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token ?? ''
       const res = await fetch('/api/stripe?action=rent-checkout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ rentScheduleId: scheduleId }),
       })
       const body = await res.json()

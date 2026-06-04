@@ -21,22 +21,17 @@ import toast from 'react-hot-toast'
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
-function getToken(): string | null {
-  for (let i = 0; i < localStorage.length; i++) {
-    const k = localStorage.key(i)
-    if (k?.startsWith('sb-') && k.endsWith('-auth-token')) {
-      const raw = localStorage.getItem(k)
-      return raw ? JSON.parse(raw)?.access_token : null
-    }
-  }
-  return null
+async function getToken(): Promise<string | null> {
+  const { data: { session } } = await supabase.auth.getSession()
+  return session?.access_token ?? null
 }
 
 async function api(action: string, opts?: { method?: string; body?: object; query?: Record<string,string> }) {
-  const qs  = new URLSearchParams({ action, ...(opts?.query ?? {}) }).toString()
-  const res = await fetch(`/api/stripe?${qs}`, {
+  const token = await getToken()
+  const qs    = new URLSearchParams({ action, ...(opts?.query ?? {}) }).toString()
+  const res   = await fetch(`/api/stripe?${qs}`, {
     method:  opts?.method ?? (opts?.body ? 'POST' : 'GET'),
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token ?? ''}` },
     ...(opts?.body ? { body: JSON.stringify(opts.body) } : {}),
   })
   const data = await res.json()
