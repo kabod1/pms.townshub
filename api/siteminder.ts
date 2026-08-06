@@ -8,7 +8,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { format, eachDayOfInterval, parseISO } from 'date-fns'
 import {
-  getSiteMinderToken,
   testConnection,
   pushARI,
   verifyWebhookSignature,
@@ -258,9 +257,6 @@ async function handleIcalImport(req: any, res: any, db: ReturnType<typeof getDb>
   for (const ev of events) {
     if (ev.dtend < today) { skipped++; continue }
     const ref = `ICAL-${ev.uid.slice(0, 16).replace(/[^A-Z0-9]/gi, '').toUpperCase()}`
-    const nights = Math.max(1, Math.round(
-      (new Date(ev.dtend).getTime() - new Date(ev.dtstart).getTime()) / 86_400_000
-    ))
 
     const { error } = await db.from('bookings').upsert({
       tenant_id:          tenantId,

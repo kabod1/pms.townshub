@@ -48,7 +48,7 @@ import {
 function stripe(): Stripe {
   const key = process.env.STRIPE_SECRET_KEY
   if (!key) throw new Error('STRIPE_SECRET_KEY is not set')
-  return new Stripe(key, { apiVersion: '2024-06-20', typescript: true })
+  return new Stripe(key, { apiVersion: '2025-02-24.acacia', typescript: true })
 }
 
 const PRICE_MAP: Record<string, string | undefined> = {
@@ -220,7 +220,7 @@ async function handleConnectOnboard(req: any, res: any, db: ReturnType<typeof ge
 
 // ── Connect: Status ───────────────────────────────────────────────────────────
 
-async function handleConnectStatus(req: any, res: any, db: ReturnType<typeof getServiceClient>, tenantId: string) {
+async function handleConnectStatus(_req: any, res: any, db: ReturnType<typeof getServiceClient>, tenantId: string) {
   const { data: tenant } = await db
     .from('tenants')
     .select('id,stripe_account_id')
@@ -262,7 +262,7 @@ async function handleConnectStatus(req: any, res: any, db: ReturnType<typeof get
 
 // ── Connect: Dashboard ────────────────────────────────────────────────────────
 
-async function handleConnectDashboard(req: any, res: any, db: ReturnType<typeof getServiceClient>, tenantId: string) {
+async function handleConnectDashboard(_req: any, res: any, db: ReturnType<typeof getServiceClient>, tenantId: string) {
   const { data: tenant } = await db.from('tenants').select('stripe_account_id').eq('id', tenantId).single()
   if (!tenant?.stripe_account_id) return res.status(400).json({ error: 'Stripe account not connected. Complete onboarding first.' })
 
@@ -379,7 +379,6 @@ async function handleConfirmBooking(req: any, res: any) {
   const totalAmount   = booking.total_amount ?? 0
   const commission    = Math.round(totalAmount * commissionPct) / 100
   const hotelEarning  = totalAmount - commission
-  const today         = new Date().toISOString().slice(0, 10)
 
   await db.from('bookings').update({
     payment_status:            'paid',
@@ -941,7 +940,7 @@ async function handleLedger(req: any, res: any, db: ReturnType<typeof getService
 
 // ── Payout history ────────────────────────────────────────────────────────────
 
-async function handlePayoutHistory(req: any, res: any, db: ReturnType<typeof getServiceClient>, tenantId: string) {
+async function handlePayoutHistory(_req: any, res: any, db: ReturnType<typeof getServiceClient>, tenantId: string) {
   const { data, error } = await db.from('owner_payouts')
     .select('*')
     .eq('tenant_id', tenantId)
