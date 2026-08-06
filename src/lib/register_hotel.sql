@@ -1,6 +1,17 @@
 -- Run this in Supabase SQL Editor
 -- Creates a SECURITY DEFINER function so new hotels can self-register
 -- without needing INSERT RLS policies on tenants/users
+--
+-- WARNING: if you change this function's parameter list (add/remove/reorder
+-- args), `CREATE OR REPLACE` does NOT replace a function with a different
+-- signature — Postgres creates a second overload instead. PostgREST then
+-- can't unambiguously resolve supabase.rpc('register_hotel', ...) between
+-- the two, and every call fails (this silently broke registration for two
+-- months in Aug 2026, orphaning auth.users rows with no tenant/profile).
+-- Before changing the signature, run in the SQL Editor:
+--   select oid::regprocedure from pg_proc where proname = 'register_hotel';
+-- and DROP FUNCTION public.register_hotel(<old signature>); for every
+-- signature except the new one, in the same migration.
 
 CREATE OR REPLACE FUNCTION register_hotel(
   p_hotel_name TEXT,
