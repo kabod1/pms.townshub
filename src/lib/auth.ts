@@ -122,18 +122,37 @@ export async function registerHotel(params: {
   }
 
   try {
-    const { error: rpcError } = await supabase.rpc('register_hotel', {
-      p_hotel_name: params.hotelName,
-      p_slug:       slug,
-      p_email:      params.email,
-      p_full_name:  params.fullName,
-      p_phone:      params.phone ?? null,
-      p_city:       params.city ?? null,
-      p_country:    params.country ?? 'Cyprus',
-      p_mode:       params.mode ?? 'hotel',
+    // Call the RPC with the access token straight off the signUp() response,
+    // rather than via supabase.rpc() (which relies on the shared client's
+    // internal auth-state listener having already attached the new session
+    // to its default headers). That listener update isn't guaranteed to have
+    // landed by this point, so register_hotel could run unauthenticated even
+    // though signUp() just handed back a perfectly valid session — an
+    // intermittent failure that a manual fetch() with an explicit token
+    // can't be exposed to.
+    const rpcRes = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/rpc/register_hotel`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY as string,
+        Authorization: `Bearer ${authData.session.access_token}`,
+      },
+      body: JSON.stringify({
+        p_hotel_name: params.hotelName,
+        p_slug:       slug,
+        p_email:      params.email,
+        p_full_name:  params.fullName,
+        p_phone:      params.phone ?? null,
+        p_city:       params.city ?? null,
+        p_country:    params.country ?? 'Cyprus',
+        p_mode:       params.mode ?? 'hotel',
+      }),
     })
 
-    if (rpcError) throw new Error(rpcError.message)
+    if (!rpcRes.ok) {
+      const body = await rpcRes.json().catch(() => ({}))
+      throw new Error(body.message || `register_hotel failed with status ${rpcRes.status}`)
+    }
 
     return { user: authData.user }
   } catch (err) {
