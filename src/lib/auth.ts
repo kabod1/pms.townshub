@@ -109,6 +109,18 @@ export async function registerHotel(params: {
   }
   if (!authData.user) throw new Error('Registration failed — please try again.')
 
+  // Supabase won't grant a fresh session for an email that already has an
+  // auth.users row — including an orphaned one left by a previously failed
+  // registration. Without a session, register_hotel's auth.uid() check will
+  // always fail with a confusing "Not authenticated" error. Fail clearly
+  // here instead, so a bad first attempt doesn't permanently trap the user.
+  if (!authData.session) {
+    throw new Error(
+      'An account with this email already exists but registration was never completed. ' +
+      'Please contact support to finish setting up your account.'
+    )
+  }
+
   try {
     const { error: rpcError } = await supabase.rpc('register_hotel', {
       p_hotel_name: params.hotelName,
