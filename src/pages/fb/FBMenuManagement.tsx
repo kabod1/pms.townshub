@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -13,6 +13,7 @@ import { Modal } from '@/components/ui/Modal'
 import { Card } from '@/components/ui/Card'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { QRCodeDisplay } from '@/components/QRCodeDisplay'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
 import { formatCurrency } from '@/lib/utils'
@@ -204,9 +205,35 @@ export default function FBMenuManagement() {
   const isLoading = catLoading || itemLoading
   const [tableCount, setTableCount] = useState(10)
   const [showTableQRs, setShowTableQRs] = useState(false)
+  const menuQrRef = useRef<any>(null)
 
   const menuUrl = tenant ? `${window.location.origin}/menu/${tenant.slug}` : ''
-  const qrSrc = menuUrl ? `https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=10&data=${encodeURIComponent(menuUrl)}` : ''
+
+  const downloadMenuQR = () => {
+    if (menuQrRef.current) {
+      const canvas = menuQrRef.current.querySelector('canvas')
+      if (canvas) {
+        const link = document.createElement('a')
+        link.href = canvas.toDataURL('image/png')
+        link.download = `${tenant?.slug || 'menu'}-qr.png`
+        link.click()
+      }
+    }
+  }
+
+  const downloadTableQR = (tableNum: number) => {
+    const qrId = `table-${tableNum}-qr`
+    const element = document.getElementById(qrId)
+    if (element) {
+      const canvas = element.querySelector('canvas')
+      if (canvas) {
+        const link = document.createElement('a')
+        link.href = canvas.toDataURL('image/png')
+        link.download = `table-${tableNum}-qr.png`
+        link.click()
+      }
+    }
+  }
 
   return (
     <DashboardLayout>
@@ -215,7 +242,9 @@ export default function FBMenuManagement() {
         {/* QR Code banner */}
         {tenant && (
           <div className="bg-[#0F2138] rounded-2xl p-5 flex flex-col sm:flex-row items-center gap-5">
-            <img src={qrSrc} alt="Menu QR" className="w-28 h-28 rounded-xl bg-white p-1 shrink-0" />
+            <div ref={menuQrRef} className="w-28 h-28 rounded-xl bg-white p-1 shrink-0 flex items-center justify-center">
+              <QRCodeDisplay value={menuUrl} size={100} />
+            </div>
             <div className="flex-1 text-center sm:text-left">
               <div className="flex items-center gap-2 justify-center sm:justify-start mb-1">
                 <QrCode size={16} className="text-amber-400" />
@@ -236,12 +265,12 @@ export default function FBMenuManagement() {
                 >
                   <ExternalLink size={12} /> Preview
                 </a>
-                <a
-                  href={qrSrc} download={`${tenant.slug}-menu-qr.png`}
+                <button
+                  onClick={downloadMenuQR}
                   className="flex items-center gap-1.5 text-xs bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-lg transition-colors"
                 >
                   <QrCode size={12} /> Download QR
-                </a>
+                </button>
                 <button
                   onClick={() => setShowTableQRs((v) => !v)}
                   className="flex items-center gap-1.5 text-xs bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-lg transition-colors"
@@ -276,18 +305,18 @@ export default function FBMenuManagement() {
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-6 gap-3">
               {Array.from({ length: tableCount }, (_, i) => i + 1).map((num) => {
                 const tableUrl = `${window.location.origin}/menu/${tenant.slug}/${num}`
-                const tableQrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&margin=8&data=${encodeURIComponent(tableUrl)}`
                 return (
                   <div key={num} className="flex flex-col items-center gap-2 p-3 border border-mid rounded-xl bg-gray-50">
-                    <img src={tableQrSrc} alt={`Table ${num} QR`} className="w-20 h-20 rounded-lg bg-white p-1" />
+                    <div id={`table-${num}-qr`} className="w-20 h-20 rounded-lg bg-white p-1 flex items-center justify-center">
+                      <QRCodeDisplay value={tableUrl} size={60} />
+                    </div>
                     <p className="text-xs font-semibold text-body">Table {num}</p>
-                    <a
-                      href={tableQrSrc}
-                      download={`table-${num}-qr.png`}
+                    <button
+                      onClick={() => downloadTableQR(num)}
                       className="text-[10px] text-gold hover:underline"
                     >
                       Download
-                    </a>
+                    </button>
                   </div>
                 )
               })}
