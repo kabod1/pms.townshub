@@ -81,6 +81,25 @@ export async function resetPassword(email: string) {
   if (error) throw error
 }
 
+// Best-effort logging so real registration failures can be diagnosed from
+// their actual client-side error instead of relying on screenshots. Never
+// lets a logging failure affect the real error flow.
+function logRegistrationFailure(email: string, step: string, errorMessage: string) {
+  fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/registration_failures`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: import.meta.env.VITE_SUPABASE_ANON_KEY as string,
+    },
+    body: JSON.stringify({
+      email,
+      step,
+      error_message: errorMessage,
+      user_agent: navigator.userAgent,
+    }),
+  }).catch(() => {})
+}
+
 export async function registerHotel(params: {
   hotelName: string
   email: string
@@ -115,6 +134,7 @@ export async function registerHotel(params: {
   // always fail with a confusing "Not authenticated" error. Fail clearly
   // here instead, so a bad first attempt doesn't permanently trap the user.
   if (!authData.session) {
+    logRegistrationFailure(params.email, 'no_session', 'signUp succeeded but returned no session')
     throw new Error(
       'An account with this email already exists but registration was never completed. ' +
       'Please contact support to finish setting up your account.'
@@ -158,6 +178,7 @@ export async function registerHotel(params: {
   } catch (err) {
     await supabase.auth.signOut()
     const msg = err instanceof Error ? err.message : String(err)
+    logRegistrationFailure(params.email, 'rpc', msg)
     throw new Error(
       msg.includes('function') || msg.includes('does not exist')
         ? 'Run register_hotel.sql in your Supabase SQL Editor first, then try again.'
