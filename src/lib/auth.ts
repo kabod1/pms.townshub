@@ -97,7 +97,7 @@ function logRegistrationFailure(email: string, step: string, errorMessage: strin
   }).catch(() => {})
 }
 
-export async function registerHotel(params: {
+type RegisterParams = {
   hotelName: string
   email: string
   password: string
@@ -106,7 +106,84 @@ export async function registerHotel(params: {
   city?: string
   country?: string
   mode?: 'hotel' | 'property' | 'both'
-}) {
+}
+
+// Calls register_hotel with the access token straight off a signUp()/
+// signInWithPassword() response, rather than via supabase.rpc() (which
+// relies on the shared client's internal auth-state listener having
+// already attached the new session to its default headers — not
+// guaranteed to have landed yet). Retried up to 3 times: a user on a
+// flaky mobile connection can lose this single request with no second
+// chance otherwise. If a retry lands after an earlier attempt actually
+// succeeded server-side (response just never made it back),
+// register_hotel's own guard raises "Hotel already registered for this
+// account" — treated here as success rather than a confusing error.
+//
+// Logs and builds the user-facing message BEFORE signOut() — on a
+// connection already struggling enough to fail the RPC after 3 tries,
+// signOut()'s own network call can throw too, which would otherwise abort
+// this whole handler before the user ever saw an error or it got logged.
+async function completeRegistration(
+  session: { access_token: string },
+  user: { id: string; email?: string },
+  params: RegisterParams,
+  slug: string,
+) {
+  let lastErr: unknown
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, 1000 * attempt))
+    try {
+      const rpcRes = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/rpc/register_hotel`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY as string,
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          p_hotel_name: params.hotelName,
+          p_slug:       slug,
+          p_email:      params.email,
+          p_full_name:  params.fullName,
+          p_phone:      params.phone ?? null,
+          p_city:       params.city ?? null,
+          p_country:    params.country ?? 'Cyprus',
+          p_mode:       params.mode ?? 'hotel',
+        }),
+      })
+
+      if (!rpcRes.ok) {
+        const body = await rpcRes.json().catch(() => ({}))
+        const message = body.message || `register_hotel failed with status ${rpcRes.status}`
+        if (message.includes('already registered')) {
+          return { user }
+        }
+        throw new Error(message)
+      }
+
+      return { user }
+    } catch (e) {
+      lastErr = e
+    }
+  }
+
+  const msg = lastErr instanceof Error ? lastErr.message : String(lastErr)
+  logRegistrationFailure(params.email, 'rpc', msg)
+  try {
+    await supabase.auth.signOut()
+  } catch {
+    // best-effort — a failed signOut shouldn't hide the real error below
+  }
+  throw new Error(
+    msg.includes('function') || msg.includes('does not exist')
+      ? 'Run register_hotel.sql in your Supabase SQL Editor first, then try again.'
+      : msg.includes('relation')
+      ? 'Run schema.sql in your Supabase SQL Editor first, then try again.'
+      : `Setup failed: ${msg}`,
+  )
+}
+
+export async function registerHotel(params: RegisterParams) {
   const slug = params.hotelName
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
@@ -121,18 +198,29 @@ export async function registerHotel(params: {
     if (authError.message.toLowerCase().includes('after')) {
       throw new Error(authError.message)
     }
-    // Unlike an orphaned account (which returns success with no session —
-    // handled below), signUp() on an email with an existing CONFIRMED
-    // account fails outright with "User already registered". This is the
-    // same underlying situation (an earlier attempt already created the
-    // auth account, register_hotel never completed) but takes a completely
-    // different code path, so it needs its own logging and friendly message.
+    // signUp() on an email with an existing CONFIRMED account fails
+    // outright with "User already registered" — most often because an
+    // earlier attempt with the SAME email+password already created the
+    // auth account but register_hotel never completed for it. Rather than
+    // just telling them to contact support, try signing in with the
+    // credentials they just typed: if it's really the same person retrying,
+    // this recovers and finishes registration right here with no human
+    // needing to intervene. Only falls back to the "contact support"
+    // message if that sign-in also fails (wrong password, or a genuinely
+    // different, unrelated existing account).
     if (authError.message.toLowerCase().includes('already registered')) {
-      logRegistrationFailure(params.email, 'signup_already_registered', authError.message)
-      throw new Error(
-        'An account with this email already exists. If registration was never completed for it, ' +
-        'please contact support to finish setting it up — otherwise try signing in instead.'
-      )
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email: params.email,
+        password: params.password,
+      })
+      if (signInError || !signInData.session || !signInData.user) {
+        logRegistrationFailure(params.email, 'signup_already_registered', authError.message)
+        throw new Error(
+          'An account with this email already exists. If registration was never completed for it, ' +
+          'please contact support to finish setting it up — otherwise try signing in instead.'
+        )
+      }
+      return completeRegistration(signInData.session, signInData.user, params, slug)
     }
     throw authError
   }
@@ -151,80 +239,5 @@ export async function registerHotel(params: {
     )
   }
 
-  try {
-    // Call the RPC with the access token straight off the signUp() response,
-    // rather than via supabase.rpc() (which relies on the shared client's
-    // internal auth-state listener having already attached the new session
-    // to its default headers). That listener update isn't guaranteed to have
-    // landed by this point, so register_hotel could run unauthenticated even
-    // though signUp() just handed back a perfectly valid session — an
-    // intermittent failure that a manual fetch() with an explicit token
-    // can't be exposed to.
-    //
-    // Retried up to 3 times: a real user on a flaky mobile connection can
-    // lose this single request with no second chance otherwise, unlike
-    // getCurrentUser() below which already tolerates transient failures.
-    // If a retry lands after an earlier attempt actually succeeded
-    // server-side (response just never made it back), register_hotel's own
-    // guard raises "Hotel already registered for this account" — treated
-    // here as success rather than a confusing error.
-    let lastErr: unknown
-    for (let attempt = 0; attempt < 3; attempt++) {
-      if (attempt > 0) await new Promise((r) => setTimeout(r, 1000 * attempt))
-      try {
-        const rpcRes = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/rpc/register_hotel`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY as string,
-            Authorization: `Bearer ${authData.session.access_token}`,
-          },
-          body: JSON.stringify({
-            p_hotel_name: params.hotelName,
-            p_slug:       slug,
-            p_email:      params.email,
-            p_full_name:  params.fullName,
-            p_phone:      params.phone ?? null,
-            p_city:       params.city ?? null,
-            p_country:    params.country ?? 'Cyprus',
-            p_mode:       params.mode ?? 'hotel',
-          }),
-        })
-
-        if (!rpcRes.ok) {
-          const body = await rpcRes.json().catch(() => ({}))
-          const message = body.message || `register_hotel failed with status ${rpcRes.status}`
-          if (message.includes('already registered')) {
-            return { user: authData.user }
-          }
-          throw new Error(message)
-        }
-
-        return { user: authData.user }
-      } catch (e) {
-        lastErr = e
-      }
-    }
-    throw lastErr
-  } catch (err) {
-    // Log and build the user-facing message BEFORE signOut() — on a
-    // connection already struggling enough to fail the RPC after 3 tries,
-    // signOut()'s own network call can throw too, which would otherwise
-    // abort this whole catch block before the user ever saw an error or
-    // this failure got logged anywhere.
-    const msg = err instanceof Error ? err.message : String(err)
-    logRegistrationFailure(params.email, 'rpc', msg)
-    try {
-      await supabase.auth.signOut()
-    } catch {
-      // best-effort — a failed signOut shouldn't hide the real error below
-    }
-    throw new Error(
-      msg.includes('function') || msg.includes('does not exist')
-        ? 'Run register_hotel.sql in your Supabase SQL Editor first, then try again.'
-        : msg.includes('relation')
-        ? 'Run schema.sql in your Supabase SQL Editor first, then try again.'
-        : `Setup failed: ${msg}`,
-    )
-  }
+  return completeRegistration(authData.session, authData.user, params, slug)
 }
