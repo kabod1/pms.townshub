@@ -3,7 +3,6 @@ import { clientsClaim } from 'workbox-core'
 import {
   precacheAndRoute,
   cleanupOutdatedCaches,
-  createHandlerBoundToURL,
 } from 'workbox-precaching'
 import {
   registerRoute,
@@ -27,11 +26,19 @@ cleanupOutdatedCaches()
 precacheAndRoute(self.__WB_MANIFEST)
 
 // ── SPA fallback ────────────────────────────────────────────────────────────
-// Serve index.html for all navigation requests except /api/ routes
-const handler = createHandlerBoundToURL('/index.html')
-const navigationRoute = new NavigationRoute(handler, {
-  denylist: [/^\/api\//],
-})
+// Navigations go to the network first (Vercel rewrites any non-api path to
+// index.html — see vercel.json), so a tab that's still open across a deploy
+// gets the current app shell as soon as it's back online, instead of being
+// stuck on whatever this service worker had precached when it first
+// installed. Falls back to the precached shell only when offline.
+const navigationRoute = new NavigationRoute(
+  new NetworkFirst({
+    cacheName: 'app-shell',
+    networkTimeoutSeconds: 3,
+    plugins: [new CacheableResponsePlugin({ statuses: [0, 200] })],
+  }),
+  { denylist: [/^\/api\//] }
+)
 registerRoute(navigationRoute)
 
 // ── Runtime caching ─────────────────────────────────────────────────────────
