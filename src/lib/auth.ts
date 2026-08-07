@@ -121,6 +121,19 @@ export async function registerHotel(params: {
     if (authError.message.toLowerCase().includes('after')) {
       throw new Error(authError.message)
     }
+    // Unlike an orphaned account (which returns success with no session —
+    // handled below), signUp() on an email with an existing CONFIRMED
+    // account fails outright with "User already registered". This is the
+    // same underlying situation (an earlier attempt already created the
+    // auth account, register_hotel never completed) but takes a completely
+    // different code path, so it needs its own logging and friendly message.
+    if (authError.message.toLowerCase().includes('already registered')) {
+      logRegistrationFailure(params.email, 'signup_already_registered', authError.message)
+      throw new Error(
+        'An account with this email already exists. If registration was never completed for it, ' +
+        'please contact support to finish setting it up — otherwise try signing in instead.'
+      )
+    }
     throw authError
   }
   if (!authData.user) throw new Error('Registration failed — please try again.')
