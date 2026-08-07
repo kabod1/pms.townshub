@@ -147,31 +147,52 @@ export async function registerHotel(params: {
     // though signUp() just handed back a perfectly valid session — an
     // intermittent failure that a manual fetch() with an explicit token
     // can't be exposed to.
-    const rpcRes = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/rpc/register_hotel`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY as string,
-        Authorization: `Bearer ${authData.session.access_token}`,
-      },
-      body: JSON.stringify({
-        p_hotel_name: params.hotelName,
-        p_slug:       slug,
-        p_email:      params.email,
-        p_full_name:  params.fullName,
-        p_phone:      params.phone ?? null,
-        p_city:       params.city ?? null,
-        p_country:    params.country ?? 'Cyprus',
-        p_mode:       params.mode ?? 'hotel',
-      }),
-    })
+    //
+    // Retried up to 3 times: a real user on a flaky mobile connection can
+    // lose this single request with no second chance otherwise, unlike
+    // getCurrentUser() below which already tolerates transient failures.
+    // If a retry lands after an earlier attempt actually succeeded
+    // server-side (response just never made it back), register_hotel's own
+    // guard raises "Hotel already registered for this account" — treated
+    // here as success rather than a confusing error.
+    let lastErr: unknown
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (attempt > 0) await new Promise((r) => setTimeout(r, 1000 * attempt))
+      try {
+        const rpcRes = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/rpc/register_hotel`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY as string,
+            Authorization: `Bearer ${authData.session.access_token}`,
+          },
+          body: JSON.stringify({
+            p_hotel_name: params.hotelName,
+            p_slug:       slug,
+            p_email:      params.email,
+            p_full_name:  params.fullName,
+            p_phone:      params.phone ?? null,
+            p_city:       params.city ?? null,
+            p_country:    params.country ?? 'Cyprus',
+            p_mode:       params.mode ?? 'hotel',
+          }),
+        })
 
-    if (!rpcRes.ok) {
-      const body = await rpcRes.json().catch(() => ({}))
-      throw new Error(body.message || `register_hotel failed with status ${rpcRes.status}`)
+        if (!rpcRes.ok) {
+          const body = await rpcRes.json().catch(() => ({}))
+          const message = body.message || `register_hotel failed with status ${rpcRes.status}`
+          if (message.includes('already registered')) {
+            return { user: authData.user }
+          }
+          throw new Error(message)
+        }
+
+        return { user: authData.user }
+      } catch (e) {
+        lastErr = e
+      }
     }
-
-    return { user: authData.user }
+    throw lastErr
   } catch (err) {
     await supabase.auth.signOut()
     const msg = err instanceof Error ? err.message : String(err)
