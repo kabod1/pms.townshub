@@ -194,9 +194,18 @@ export async function registerHotel(params: {
     }
     throw lastErr
   } catch (err) {
-    await supabase.auth.signOut()
+    // Log and build the user-facing message BEFORE signOut() — on a
+    // connection already struggling enough to fail the RPC after 3 tries,
+    // signOut()'s own network call can throw too, which would otherwise
+    // abort this whole catch block before the user ever saw an error or
+    // this failure got logged anywhere.
     const msg = err instanceof Error ? err.message : String(err)
     logRegistrationFailure(params.email, 'rpc', msg)
+    try {
+      await supabase.auth.signOut()
+    } catch {
+      // best-effort — a failed signOut shouldn't hide the real error below
+    }
     throw new Error(
       msg.includes('function') || msg.includes('does not exist')
         ? 'Run register_hotel.sql in your Supabase SQL Editor first, then try again.'
