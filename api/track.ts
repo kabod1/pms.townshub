@@ -4,6 +4,7 @@
  * on every incoming request from real users.
  */
 import { createClient } from '@supabase/supabase-js'
+import { sanitizeString } from './_lib/security.js'
 
 const ALLOWED_ORIGINS = [
   'https://pms.townshub.com',
@@ -56,6 +57,27 @@ export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') return res.status(405).end()
 
   const ip = getIp(req)
+  const action = req.query.action as string | undefined
+
+  // ── Registration failure log (write-only, no anon table access) ────────────
+  if (action === 'registration-failure') {
+    if (!rateLimit(`track:regfail:${ip}`, 10, 60_000)) {
+      return res.status(429).json({ error: 'Too many requests' })
+    }
+
+    const { email, step, error_message, user_agent } = req.body ?? {}
+    const db = getDb()
+    const { error } = await db.from('registration_failures').insert({
+      email:         email         ? sanitizeString(email).slice(0, 320)         : null,
+      step:          step          ? sanitizeString(step).slice(0, 50)           : null,
+      error_message: error_message ? sanitizeString(error_message).slice(0, 2000) : null,
+      user_agent:    user_agent    ? sanitizeString(user_agent).slice(0, 500)    : null,
+    })
+
+    if (error) console.error('[track] registration_failures insert error:', error.message)
+    return res.status(200).json({ ok: true })
+  }
+
   if (!rateLimit(`track:${ip}`, 60, 60_000)) {
     return res.status(429).json({ error: 'Too many requests' })
   }

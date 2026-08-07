@@ -85,12 +85,9 @@ export async function resetPassword(email: string) {
 // their actual client-side error instead of relying on screenshots. Never
 // lets a logging failure affect the real error flow.
 function logRegistrationFailure(email: string, step: string, errorMessage: string) {
-  fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/registration_failures`, {
+  fetch('/api/track?action=registration-failure', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      apikey: import.meta.env.VITE_SUPABASE_ANON_KEY as string,
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       email,
       step,
