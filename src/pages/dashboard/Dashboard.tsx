@@ -139,7 +139,7 @@ function useRecentActivity() {
           .order('updated_at', { ascending: false })
           .limit(8),
         supabase.from('maintenance_requests')
-          .select('id, title, status, created_at')
+          .select('id, description, status, created_at')
           .eq('tenant_id', tenant!.id)
           .gte('created_at', since)
           .order('created_at', { ascending: false })
@@ -164,7 +164,7 @@ function useRecentActivity() {
         else if (b.status === 'cancelled')   items.push({ id: b.id, time: b.updated_at, icon: 'cancel',    label: `Booking cancelled`,       sub: b.booking_reference, color: 'text-red-500' })
       }
       for (const m of maintenanceRes.data ?? []) {
-        items.push({ id: m.id, time: m.created_at, icon: 'maintenance', label: m.title, sub: `Maintenance · ${m.status}`, color: 'text-amber-600' })
+        items.push({ id: m.id, time: m.created_at, icon: 'maintenance', label: m.description, sub: `Maintenance · ${m.status}`, color: 'text-amber-600' })
       }
       for (const h of housekeepingRes.data ?? []) {
         const room = (Array.isArray(h.room) ? h.room[0] : h.room) as { number: string } | null
