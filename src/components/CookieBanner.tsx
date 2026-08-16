@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { X, Cookie } from 'lucide-react'
 
@@ -16,10 +16,33 @@ export function getCookieConsent(): CookieConsent {
 
 export function CookieBanner() {
   const [visible, setVisible] = useState(false)
+  const bannerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (getCookieConsent() === null) setVisible(true)
   }, [])
+
+  // Reserve space at the bottom of the page for the banner instead of
+  // floating over content -- otherwise it can overlap and block
+  // bottom-of-viewport controls (e.g. a form's submit button) on short
+  // viewports, since it renders fixed and full-width at z-50 above everything.
+  useEffect(() => {
+    if (!visible) return
+    const el = bannerRef.current
+    if (!el) return
+
+    function applyPadding() {
+      document.body.style.paddingBottom = `${el!.offsetHeight}px`
+    }
+    applyPadding()
+
+    const observer = new ResizeObserver(applyPadding)
+    observer.observe(el)
+    return () => {
+      observer.disconnect()
+      document.body.style.paddingBottom = ''
+    }
+  }, [visible])
 
   function accept(level: 'all' | 'essential') {
     try { localStorage.setItem(STORAGE_KEY, level) } catch { /* ignore */ }
@@ -29,7 +52,7 @@ export function CookieBanner() {
   if (!visible) return null
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 p-4 sm:p-6">
+    <div ref={bannerRef} className="fixed bottom-0 left-0 right-0 z-50 p-4 sm:p-6">
       <div className="mx-auto max-w-4xl rounded-xl border border-white/10 bg-navy shadow-2xl">
         <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:gap-6 sm:p-5">
           <Cookie size={22} className="hidden shrink-0 text-gold sm:block" />
