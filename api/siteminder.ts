@@ -216,8 +216,17 @@ async function handleIcalImport(req: any, res: any, db: ReturnType<typeof getDb>
   const tenantId = await getTenantId(user.id, db)
   if (!tenantId) return res.status(401).json({ error: 'No tenant' })
 
-  const { url } = req.body ?? {}
+  const { url, roomId } = req.body ?? {}
   if (!url || typeof url !== 'string') return res.status(400).json({ error: 'url is required' })
+  if (!roomId || typeof roomId !== 'string') {
+    return res.status(400).json({ error: 'roomId is required — pick which room this calendar feed blocks' })
+  }
+
+  // The caller-supplied roomId must actually belong to this tenant — otherwise
+  // an authenticated user of one tenant could pass another tenant's room id
+  // and write blocked-date bookings onto it.
+  const { data: targetRoom } = await db.from('rooms').select('id').eq('id', roomId).eq('tenant_id', tenantId).single()
+  if (!targetRoom) return res.status(400).json({ error: 'That room was not found for your property' })
 
   // Fetch the iCal feed
   let icalText: string
@@ -237,17 +246,6 @@ async function handleIcalImport(req: any, res: any, db: ReturnType<typeof getDb>
   if (events.length === 0) {
     return res.status(200).json({ ok: true, imported: 0, message: 'No events found in feed' })
   }
-
-  // Get rooms to assign blocks to — use the first active room as the target
-  const { data: rooms } = await db
-    .from('rooms')
-    .select('id, number')
-    .eq('tenant_id', tenantId)
-    .eq('is_active', true)
-    .order('number')
-    .limit(1)
-
-  const roomId = rooms?.[0]?.id ?? null
 
   // Upsert bookings from iCal events (marked as source='ical', status='confirmed')
   let imported = 0
@@ -281,19 +279,82 @@ async function handleIcalImport(req: any, res: any, db: ReturnType<typeof getDb>
   return res.status(200).json({ ok: true, imported, skipped, total: events.length })
 }
 
+// ─── iCal export ─────────────────────────────────────────────────────────────
+// Lets a tenant paste this URL into Airbnb/VRBO/Google Calendar's own "import
+// a calendar" field, so external platforms see which dates are already
+// booked here. No auth token — calendar apps re-fetch these URLs on their
+// own schedule with no interactive login step, same as every other PMS's
+// iCal export. Deliberately excludes guest names/contact info from the
+// exported events (just "Reserved"), since the URL itself is the only
+// access control this endpoint has.
+function icsEscape(text: string): string {
+  return text.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n')
+}
+
+function toIcsDate(dateStr: string): string {
+  return dateStr.replace(/-/g, '')
+}
+
+async function handleIcalExport(req: any, res: any, db: ReturnType<typeof getDb>) {
+  const tenantSlug = req.query?.tenant as string
+  const roomTypeId = req.query?.room_type as string | undefined
+  if (!tenantSlug) return res.status(400).send('Missing ?tenant=')
+
+  const { data: tenant } = await db.from('tenants').select('id,name').eq('slug', tenantSlug).single()
+  if (!tenant) return res.status(404).send('Not found')
+
+  let query = db.from('bookings')
+    .select('check_in_date,check_out_date,booking_reference')
+    .eq('tenant_id', tenant.id)
+    .in('status', ['confirmed', 'checked_in'])
+
+  if (roomTypeId) query = query.eq('room_type_id', roomTypeId)
+
+  const { data: bookings, error } = await query
+  if (error) return res.status(500).send('Failed to load bookings')
+
+  const lines: string[] = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//TownsHub PMS//Availability Export//EN',
+    'CALSCALE:GREGORIAN',
+    `X-WR-CALNAME:${icsEscape(tenant.name)} Availability`,
+  ]
+
+  for (const b of bookings ?? []) {
+    lines.push(
+      'BEGIN:VEVENT',
+      `UID:${b.booking_reference}@townshub.com`,
+      `DTSTART;VALUE=DATE:${toIcsDate(b.check_in_date)}`,
+      `DTEND;VALUE=DATE:${toIcsDate(b.check_out_date)}`,
+      'SUMMARY:Reserved',
+      'END:VEVENT',
+    )
+  }
+
+  lines.push('END:VCALENDAR')
+
+  res.setHeader('Content-Type', 'text/calendar; charset=utf-8')
+  // Calendar apps poll on their own schedule (often hourly or less); no need
+  // for this to be any fresher than a short cache window.
+  res.setHeader('Cache-Control', 'public, max-age=1800')
+  return res.status(200).send(lines.join('\r\n'))
+}
+
 // ─── Router ───────────────────────────────────────────────────────────────────
 
 export default async function handler(req: any, res: any) {
   const db     = getDb()
   const action = req.query?.action as string
 
-  if (action === 'webhook') return handleWebhook(req, res, db)
+  if (action === 'webhook')     return handleWebhook(req, res, db)
   if (action === 'ical-import') return handleIcalImport(req, res, db)
+  if (action === 'ical-export') return handleIcalExport(req, res, db)
 
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
   if (action === 'test')    return handleTest(req, res, db)
   if (action === 'push')    return handlePush(req, res, db)
 
-  return res.status(400).json({ error: 'Unknown action. Use ?action=test|push|webhook|ical-import' })
+  return res.status(400).json({ error: 'Unknown action. Use ?action=test|push|webhook|ical-import|ical-export' })
 }

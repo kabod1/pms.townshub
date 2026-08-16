@@ -4,6 +4,7 @@ import { DashboardLayout } from '@/layouts/DashboardLayout'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { Select } from '@/components/ui/Select'
 import { Modal } from '@/components/ui/Modal'
 import { CHANNEL_DEFAULTS } from '@/lib/integrations/channels'
 import type { ChannelId, ChannelConfig } from '@/lib/integrations/channels'
@@ -71,6 +72,9 @@ type DBConfig = {
   last_sync_at: string | null
 }
 
+type RoomTypeOption = { id: string; name: string }
+type RoomOption = { id: string; number: string; room_type_id: string | null }
+
 export default function ChannelManager() {
   const { tenant } = useAuthStore()
   const [channels, setChannels] = useState<ChannelConfig[]>(CHANNEL_DEFAULTS)
@@ -82,13 +86,27 @@ export default function ChannelManager() {
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null)
   const [icalUrl, setIcalUrl] = useState('')
+  const [icalImportRoomId, setIcalImportRoomId] = useState('')
   const [icalImporting, setIcalImporting] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [roomTypes, setRoomTypes] = useState<RoomTypeOption[]>([])
+  const [rooms, setRooms] = useState<RoomOption[]>([])
+  const [exportRoomTypeId, setExportRoomTypeId] = useState('')
 
   useEffect(() => {
     if (!tenant) return
     loadConfigs()
+    loadRoomsAndTypes()
   }, [tenant])
+
+  async function loadRoomsAndTypes() {
+    const [rtRes, roomsRes] = await Promise.all([
+      supabase.from('room_types').select('id,name').eq('tenant_id', tenant!.id).eq('is_active', true).order('name'),
+      supabase.from('rooms').select('id,number,room_type_id').eq('tenant_id', tenant!.id).eq('is_active', true).order('number'),
+    ])
+    setRoomTypes((rtRes.data as RoomTypeOption[]) ?? [])
+    setRooms((roomsRes.data as RoomOption[]) ?? [])
+  }
 
   async function loadConfigs() {
     const { data } = await supabase
@@ -407,15 +425,21 @@ export default function ChannelManager() {
             <Card>
               <p className="text-sm text-subtext mb-3">
                 Import bookings from any calendar feed (Google Calendar, Airbnb, VRBO, etc.) using an iCal URL.
+                Each feed blocks dates on one specific room — for a multi-room property with several Airbnb
+                listings, import each listing's calendar separately against its matching room.
               </p>
-              <div className="flex gap-2 flex-wrap">
-                <div className="flex-1 min-w-0">
-                  <Input
-                    placeholder="https://calendar.google.com/calendar/ical/..."
-                    value={icalUrl}
-                    onChange={(e) => setIcalUrl(e.target.value)}
-                  />
-                </div>
+              <div className="grid sm:grid-cols-[1fr,220px,auto] gap-2">
+                <Input
+                  placeholder="https://www.airbnb.com/calendar/ical/12345.ics?s=..."
+                  value={icalUrl}
+                  onChange={(e) => setIcalUrl(e.target.value)}
+                />
+                <Select
+                  value={icalImportRoomId}
+                  onChange={(e) => setIcalImportRoomId(e.target.value)}
+                  placeholder="Which room?"
+                  options={rooms.map((r) => ({ value: r.id, label: `Room ${r.number}` }))}
+                />
                 <Button
                   variant="outline"
                   loading={icalImporting}
@@ -429,7 +453,7 @@ export default function ChannelManager() {
                           'Content-Type': 'application/json',
                           Authorization: `Bearer ${session?.access_token ?? ''}`,
                         },
-                        body: JSON.stringify({ url: icalUrl }),
+                        body: JSON.stringify({ url: icalUrl, roomId: icalImportRoomId }),
                       })
                       const body = await res.json()
                       if (!res.ok) throw new Error(body.error ?? 'Import failed')
@@ -441,17 +465,47 @@ export default function ChannelManager() {
                       setIcalImporting(false)
                     }
                   }}
-                  disabled={!icalUrl.trim()}
+                  disabled={!icalUrl.trim() || !icalImportRoomId}
                 >
                   <Link size={14} /> Import
                 </Button>
               </div>
-              <p className="text-xs text-subtext mt-2">
-                Your iCal export:{' '}
-                <code className="font-mono bg-light px-1 rounded">
-                  {window.location.origin}/api/ical/{tenant?.slug}/ROOM_TYPE_ID.ics
-                </code>
-              </p>
+
+              <div className="mt-4 pt-4 border-t border-mid">
+                <p className="text-sm font-medium text-body mb-2">
+                  Export your availability (paste into Airbnb's "import a calendar" field)
+                </p>
+                <div className="grid sm:grid-cols-[220px,1fr] gap-2 items-start">
+                  <Select
+                    value={exportRoomTypeId}
+                    onChange={(e) => setExportRoomTypeId(e.target.value)}
+                    placeholder="All room types"
+                    options={roomTypes.map((rt) => ({ value: rt.id, label: rt.name }))}
+                  />
+                  <div className="flex items-center gap-2 min-w-0">
+                    <code className="font-mono bg-light px-2 py-1.5 rounded text-xs flex-1 truncate">
+                      {window.location.origin}/api/siteminder?action=ical-export&tenant={tenant?.slug}
+                      {exportRoomTypeId ? `&room_type=${exportRoomTypeId}` : ''}
+                    </code>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const url = `${window.location.origin}/api/siteminder?action=ical-export&tenant=${tenant?.slug}${exportRoomTypeId ? `&room_type=${exportRoomTypeId}` : ''}`
+                        navigator.clipboard.writeText(url)
+                        toast.success('Export URL copied')
+                      }}
+                      className="shrink-0 rounded p-1.5 hover:bg-light transition-colors"
+                      title="Copy export URL"
+                    >
+                      <Copy size={14} className="text-subtext" />
+                    </button>
+                  </div>
+                </div>
+                <p className="text-xs text-subtext mt-1.5">
+                  Leave "All room types" selected to export every confirmed booking, or pick one room type if
+                  each Airbnb listing corresponds to a specific room type.
+                </p>
+              </div>
             </Card>
           </div>
 

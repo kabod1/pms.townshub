@@ -65,45 +65,13 @@ export const CHANNEL_DEFAULTS: ChannelConfig[] = [
   },
 ]
 
-export interface ChannelAvailabilityUpdate {
-  roomTypeId: string
-  date: string
-  available: number
-  price: number
-}
-
-export async function pushAvailability(
-  channel: ChannelId,
-  updates: ChannelAvailabilityUpdate[],
-  token: string
-): Promise<boolean> {
-  if (channel === 'siteminder') {
-    const res = await fetch('/api/siteminder?action=push', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        from:       updates[0]?.date,
-        to:         updates[updates.length - 1]?.date,
-        roomTypeId: updates[0]?.roomTypeId,
-        ratePlanId: 'DEFAULT',
-      }),
-    })
-    return res.ok
-  }
-  console.warn(`[Channels] pushAvailability stub — ${channel}`)
-  return false
-}
-
-export async function pullReservations(channel: ChannelId): Promise<unknown[]> {
-  console.warn(`[Channels] pullReservations stub — ${channel}`)
-  return []
-}
-
-export function icalExportUrl(tenantSlug: string, roomTypeId: string): string {
-  return `/api/ical/${tenantSlug}/${roomTypeId}.ics`
-}
-
-export async function importIcalFeed(url: string): Promise<boolean> {
-  console.warn('[Channels] importIcalFeed stub — url:', url)
-  return false
-}
+// Actual sync logic lives in api/siteminder.ts + src/lib/integrations/siteminder.ts
+// (push ARI, receive-via-webhook, iCal import/export) and is called directly
+// from ChannelManager.tsx. This file used to also export pushAvailability(),
+// pullReservations(), icalExportUrl(), and importIcalFeed() as a parallel
+// abstraction — none of them were ever wired to anything real (pushAvailability
+// only worked for siteminder and just re-implemented the same fetch call
+// ChannelManager.tsx already makes directly; the other three were pure
+// console.warn stubs, including icalExportUrl() pointing at an /api/ical/...
+// endpoint that was never built). Removed rather than fixed, since nothing
+// imported them.
